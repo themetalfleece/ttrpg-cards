@@ -1,0 +1,34 @@
+{
+  "name": "ttrpg-cards",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "packageManager": "pnpm@12.4.2",
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @ttrpg-cards/web dev",
+    "build": "pnpm --filter @ttrpg-cards/web build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "cross-env DO_NOT_TRACK=1 turbo run lint",
+    "typecheck": "cross-env DO_NOT_TRACK=1 turbo run typecheck",
+    "test": "cross-env DO_NOT_TRACK=1 turbo run test",
+    "test:watch": "pnpm --filter @ttrpg-cards/ui test:watch",
+    "storybook": "pnpm --filter @ttrpg-cards/ui storybook",
+    "build-storybook": "pnpm --filter @ttrpg-cards/ui build-storybook"
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@next/eslint-plugin-next": "catalog:",
+    "cross-env": "catalog:",
+    "eslint": "catalog:",
+    "eslint-plugin-react-hooks": "catalog:",
+    "eslint-plugin-storybook": "catalog:",
+    "prettier": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:lint",
+    "typescript-eslint": "catalog:"
+  }
+}

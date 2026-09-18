@@ -1,0 +1,26 @@
+{
+  "name": "@ttrpg-cards/printer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Sheet layout, pagination, and PDF generation.",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@ttrpg-cards/core": "workspace:*"
+  },
+  "devDependencies": {
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

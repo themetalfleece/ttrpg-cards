@@ -1,0 +1,25 @@
+# Dependencies
+node_modules
+
+# Build + task caches
+.turbo
+.next
+out
+storybook-static
+coverage
+dist
+*.tsbuildinfo
+next-env.d.ts
+
+# Local-only notes. Kept as a glob so no tracked file names a specific one.
+*.local.md
+
+# Local environment overrides
+.env
+.env.*
+!.env.example
+
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini

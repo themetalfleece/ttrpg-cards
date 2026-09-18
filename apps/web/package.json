@@ -1,0 +1,33 @@
+{
+  "name": "@ttrpg-cards/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Thin Next.js wrapper: routes, layouts, and static-export configuration.",
+  "scripts": {
+    "dev": "cross-env NEXT_TELEMETRY_DISABLED=1 next dev",
+    "build": "cross-env NEXT_TELEMETRY_DISABLED=1 next build",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ttrpg-cards/core": "workspace:*",
+    "@ttrpg-cards/importer": "workspace:*",
+    "@ttrpg-cards/printer": "workspace:*",
+    "@ttrpg-cards/srd": "workspace:*",
+    "@ttrpg-cards/storage": "workspace:*",
+    "@ttrpg-cards/ui": "workspace:*",
+    "@ttrpg-cards/validator": "workspace:*",
+    "next": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "cross-env": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:"
+  }
+}

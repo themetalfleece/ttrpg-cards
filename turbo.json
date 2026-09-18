@@ -1,0 +1,19 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "globalDependencies": [
+    "eslint.config.mjs",
+    "tsconfig.base.json",
+    "pnpm-workspace.yaml",
+    "types/*.d.ts",
+    ".nvmrc"
+  ],
+  "tasks": {
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
+    "test": {}
+  }
+}

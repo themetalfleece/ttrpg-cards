@@ -1,0 +1,26 @@
+{
+  "name": "@ttrpg-cards/storage",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The only module allowed to touch browser storage: IndexedDB for card data, local preferences for small UI state.",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@ttrpg-cards/core": "workspace:*"
+  },
+  "devDependencies": {
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

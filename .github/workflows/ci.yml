@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A superseded run on a pull request proves nothing, so keep only the newest. Pushes to
+# `main` are never cancelled: every commit on the default branch gets its own result.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # The project does not transmit anything; that includes its tooling. These cover
+  # the runner even for a tool invoked outside the package scripts.
+  DO_NOT_TRACK: "1"
+  NEXT_TELEMETRY_DISABLED: "1"
+  TURBO_TELEMETRY_DISABLED: "1"
+
+jobs:
+  gate:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    # The gate takes about a minute. Anything approaching this is wedged, not slow,
+    # and should fail rather than hold a runner for the six-hour default.
+    timeout-minutes: 20
+    steps:
+      # Actions are pinned to a commit, not a tag: a tag can be re-pointed by whoever
+      # owns the action, and CI executes third-party code over a checkout of this repo.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Must precede setup-node: its pnpm store cache needs pnpm on PATH.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # The gate every change must pass, in the order the conventions define it.
+      # Kept as separate steps so a failure names itself in the job summary.
+      - name: Format
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Build Storybook
+        run: pnpm build-storybook

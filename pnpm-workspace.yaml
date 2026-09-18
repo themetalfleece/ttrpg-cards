@@ -1,0 +1,52 @@
+packages:
+  - apps/*
+  - features/*
+  - packages/*
+
+# Single source of truth for every third-party version. Workspace manifests
+# reference these with `catalog:` so a version is pinned in exactly one place.
+catalog:
+  "@eslint/js": 10.0.1
+  "@next/eslint-plugin-next": 16.3.5
+  "@storybook/react-vite": 10.6.0
+  "@types/node": 26.6.1
+  "@types/react": 19.3.0
+  "@types/react-dom": 19.3.0
+  "@vitejs/plugin-react": 6.1.1
+  clsx: 2.1.1
+  cross-env: 10.1.0
+  eslint: 10.10.0
+  eslint-plugin-react-hooks: 7.1.1
+  eslint-plugin-storybook: 10.6.0
+  jsdom: 30.1.0
+  next: 16.3.5
+  prettier: 3.9.8
+  radix-ui: 1.6.7
+  react: 19.3.0
+  react-dom: 19.3.0
+  storybook: 10.6.0
+  turbo: 2.10.13
+  typebox: 1.3.33
+  typescript: 7.0.2
+  typescript-eslint: 8.70.0
+  vite: 8.3.0
+  vitest: 5.0.1
+
+# typescript-eslint refuses to load against the TypeScript 7 compiler API. Until
+# it ships support, the lint toolchain runs the TypeScript 6 API side by side with
+# the TypeScript 7 compiler every package typechecks and builds with.
+catalogs:
+  lint:
+    typescript: 6.0.3
+
+# Both ship prebuilt native binaries and need their install script to select one.
+allowBuilds:
+  esbuild: true
+  unrs-resolver: true
+
+# Supply-chain guard: a freshly published version is not installed until it has
+# been public long enough for a compromised release to be caught and pulled.
+# Minutes; 1440 is one day. Exclusions are per exact version and must be justified.
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - prettier@3.9.8
