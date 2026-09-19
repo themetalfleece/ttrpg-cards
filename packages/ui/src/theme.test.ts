@@ -3,6 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { parchmentPalette } from "./theme.fixtures";
+
 /**
  * The stylesheet's own text. Vitest does not process CSS, so the theme is read
  * as a file rather than imported: the point is to hold the shipped stylesheet
@@ -131,9 +133,23 @@ const schemes = {
   ]),
 };
 
+/**
+ * Every set of colours a card is drawn in. The sample palette is read over the
+ * light scheme, the way dark is, because it overrides only the card's roles.
+ */
+const colourSets = {
+  ...schemes,
+  parchment: new Map([
+    ...lightDeclarations,
+    ...Object.entries(parchmentPalette),
+  ]),
+};
+
 describe("the card's colours", () => {
-  for (const [scheme, declarations] of Object.entries(schemes)) {
-    describe(scheme, () => {
+  for (const [colourSet, declarations] of Object.entries(
+    colourSets,
+  )) {
+    describe(colourSet, () => {
       for (const pair of CARD_TEXT_PAIRS) {
         it(`sets ${pair.text} on ${pair.on} legibly`, () => {
           const ratio = contrast(
@@ -154,5 +170,18 @@ describe("the card's colours", () => {
     expect(resolve("--card-color-text", schemes.light)).not.toBe(
       resolve("--card-color-text", schemes.dark),
     );
+  });
+
+  // A property the palette does not set falls through to the scheme underneath,
+  // so the pair passes without measuring the palette at all.
+  it("sets every colour the pairs read", () => {
+    const read = new Set(
+      CARD_TEXT_PAIRS.flatMap((pair) => [pair.text, pair.on]),
+    );
+    const missing = [...read].filter(
+      (property) => !(property in parchmentPalette),
+    );
+
+    expect(missing).toEqual([]);
   });
 });

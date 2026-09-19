@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { CardLayout } from "@ttrpg-cards/card";
+import { Box } from "@ttrpg-cards/ui/Box";
+import type { CSSProperties } from "react";
 
+import { parchmentPalette } from "../theme.fixtures";
 import { CardFace } from "./CardFace.component";
 import {
   gearShapedCard,
@@ -87,4 +90,16 @@ export const LongBody: Story = {
 /** Words longer than the card is wide, which have to break to stay inside it. */
 export const UnbreakableWords: Story = {
   args: { card: unbreakableWordCard },
+};
+
+/** The same card under another palette, with nothing about the card changed. */
+export const Recoloured: Story = {
+  args: { card: spellShapedCard },
+  decorators: [
+    (Story) => (
+      <Box style={parchmentPalette as CSSProperties}>
+        <Story />
+      </Box>
+    ),
+  ],
 };

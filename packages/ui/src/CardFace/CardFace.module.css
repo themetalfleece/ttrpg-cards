@@ -149,6 +149,8 @@
   background: var(--card-color-badge-surface);
   color: var(--card-color-badge-text);
   font-size: var(--card-font-size-badge);
+  /* Text figures hang below the baseline, which sits a digit low in the disc. */
+  font-variant-numeric: lining-nums;
   font-weight: var(--font-weight-bold);
   line-height: 1;
 }
