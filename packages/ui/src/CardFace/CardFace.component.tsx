@@ -28,20 +28,29 @@ import { StatBlock } from "./StatBlock/StatBlock.component";
  *
  * Text is set at whatever size the content fits at, measured in place. The
  * card's box never changes: a card is cut to a size and the type gives way.
+ *
+ * A card carrying a `position` is one of a set, and says so beside its name.
  */
-export function CardFace({ card, layout, className }: CardFaceProps) {
+export function CardFace({
+  card,
+  layout,
+  position,
+  fontSizeMillimetres,
+  className,
+}: CardFaceProps) {
   const frameRef = useRef<HTMLElement>(null);
-  const fontSizeMillimetres = useFittedFontSize({
+  const fittedMillimetres = useFittedFontSize({
     layout,
     card,
     frameRef,
+    fontSizeMillimetres,
   });
 
   // React types `style` as the properties it knows about, so the custom
   // properties the stylesheet reads need the assertion.
   const style = cardFaceStyle({
     layout,
-    fontSizeMillimetres,
+    fontSizeMillimetres: fittedMillimetres,
   }) as CSSProperties;
 
   return (
@@ -58,6 +67,11 @@ export function CardFace({ card, layout, className }: CardFaceProps) {
           {card.badge !== undefined && (
             <Box as="span" className={styles.badge}>
               <RichTextView text={card.badge} />
+            </Box>
+          )}
+          {position !== undefined && (
+            <Box as="span" className={styles.position}>
+              {position.label}
             </Box>
           )}
         </Box>

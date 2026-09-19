@@ -1,4 +1,9 @@
-import { type Card, CardLayout, CardModel } from "@ttrpg-cards/card";
+import {
+  type Card,
+  CardLayout,
+  CardModel,
+  type CardPosition,
+} from "@ttrpg-cards/card";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -15,11 +20,18 @@ import {
 function markupFor(options: {
   card: Card;
   layout?: CardLayout;
+  position?: CardPosition;
+  fontSizeMillimetres?: number;
 }): string {
   const layout = options.layout ?? CardLayout.default();
 
   return renderToStaticMarkup(
-    <CardFace card={options.card} layout={layout} />,
+    <CardFace
+      card={options.card}
+      layout={layout}
+      position={options.position}
+      fontSizeMillimetres={options.fontSizeMillimetres}
+    />,
   );
 }
 
@@ -101,6 +113,27 @@ describe("CardFace", () => {
     expect(text).toContain(
       "which is not a comfortable thing to carry",
     );
+  });
+
+  it("says where the card sits when it is one of a set", () => {
+    const markup = markupFor({
+      card: spellShapedCard,
+      position: { number: 2, total: 2, label: "2/2" },
+    });
+
+    expect(textOf(markup)).toContain("2/2");
+  });
+
+  it("says nothing about position on a card that stands alone", () => {
+    expect(
+      textOf(markupFor({ card: spellShapedCard })),
+    ).not.toContain("/2");
+  });
+
+  it("sets the type at a size it is handed rather than measuring", () => {
+    expect(
+      markupFor({ card: spellShapedCard, fontSizeMillimetres: 2.1 }),
+    ).toContain("--card-font-size:2.1mm");
   });
 
   it("renders sample cards the model accepts", () => {

@@ -46,8 +46,12 @@ walking the list its own way.
   marked separately. It refuses to build an empty span, for the same reason `of` refuses an empty
   string.
 - **`RichText.plain(text)`** flattens runs back to characters, for measuring and searching.
+- **`RichText.split({ text, at })`** cuts a span in two at a character offset, which is what a
+  card running onto a continuation needs. `at` counts plain characters, so a caller that found a
+  boundary in `plain` hands back the offset it found. A run straddling the cut is divided and both
+  halves keep its marks. It refuses an offset at either end, because an empty half is not a span.
 
-`marked` and `joined` both come back canonical, so no caller has to normalise afterwards.
+`marked`, `joined` and `split` all come back canonical, so no caller has to normalise afterwards.
 
 ## Boundaries
 

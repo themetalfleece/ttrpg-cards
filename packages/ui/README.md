@@ -38,8 +38,33 @@ setting a candidate size on the real element and reading back whether the conten
 inside the card, and re-measures when the card's box changes. The card's own box never moves: a
 card is cut to a size and the type gives way.
 
-A card too long even at the bottom of the range stays overflowing. Splitting it across a second
-card is a different routine's decision, and nothing here ever cuts a word.
+`CardFace` renders one card. A card that is one of a set takes a `position` and says where it
+sits beside its name; the indicator shares the heading row and is set smaller than the name, so
+showing it costs the card no height. A `fontSizeMillimetres` skips the measurement for a caller
+that has already decided a size.
+
+## The card set
+
+`CardSetView` is the component to reach for when the content might not fit. It takes the same
+card and layout, and renders the set that card makes: one card most of the time, and a card plus
+its continuations when the content will not fit at the bottom of the fitting range. Nothing is
+ever cut, and no word is ever broken across cards.
+
+Where the split falls is `CardSet.split` in [`@ttrpg-cards/card`](../card), which is pure and
+tested on its own. `CardSetView.hooks.ts` answers the one question it asks the honest way:
+it renders the candidate as a real card off the side of the page, at the bottom of the layout's
+range, and reads back whether the content sits inside it. The renders are synchronous, so the
+whole search happens in one pass and the reader never sees a candidate. It runs in a microtask
+just after the commit, because React will not render a root of its own in the middle of one.
+
+**One off-page card serves the whole page.** It holds nothing between measurements and no two
+searches interleave, since each runs to completion inside its own microtask, so the node and its
+root are built on first use and emptied rather than torn down. A sheet of a hundred cards would
+otherwise allocate a fiber root and a DOM node each, most of them only to be told the card fits.
+
+A split set is set at the bottom of the range throughout. The split happened because the floor
+was not enough, so the first card is at the floor by definition, and letting a shorter
+continuation grow would set one entry in two sizes.
 
 ## Working here
 

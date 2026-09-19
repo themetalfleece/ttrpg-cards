@@ -1,0 +1,13 @@
+/*
+ * A set laid out as what it is: cards side by side, in reading order, never
+ * separated from one another.
+ *
+ * The gap between them belongs to the page rather than to a card, so it is a
+ * theme space and not a length read off the layout.
+ */
+.set {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: flex-start;
+}

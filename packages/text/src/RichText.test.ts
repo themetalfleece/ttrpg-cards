@@ -235,3 +235,82 @@ describe("RichText.joined", () => {
     expect(() => RichText.joined([], [])).toThrow(TypeError);
   });
 });
+
+describe("RichText.split", () => {
+  it("cuts on a run boundary without touching either run", () => {
+    expect(
+      RichText.split({
+        text: [
+          { text: "Loud." },
+          { text: " Quiet.", marks: [TEXT_MARKS.emphasis] },
+        ],
+        at: 5,
+      }),
+    ).toEqual([
+      [{ text: "Loud." }],
+      [{ text: " Quiet.", marks: [TEXT_MARKS.emphasis] }],
+    ]);
+  });
+
+  it("divides the run the cut lands inside and gives both halves its marks", () => {
+    expect(
+      RichText.split({
+        text: [{ text: "one two", marks: [TEXT_MARKS.strong] }],
+        at: 4,
+      }),
+    ).toEqual([
+      [{ text: "one ", marks: [TEXT_MARKS.strong] }],
+      [{ text: "two", marks: [TEXT_MARKS.strong] }],
+    ]);
+  });
+
+  it("loses nothing, so the halves read back as the whole", () => {
+    const text = [
+      { text: "The water runs backwards " },
+      { text: "to the named hour", marks: [TEXT_MARKS.emphasis] },
+      { text: ", and everything it touched is touched again." },
+    ];
+
+    const [before, after] = RichText.split({ text, at: 30 });
+
+    expect(`${RichText.plain(before)}${RichText.plain(after)}`).toBe(
+      RichText.plain(text),
+    );
+  });
+
+  it("returns both halves canonical", () => {
+    const [before, after] = RichText.split({
+      text: [{ text: "one " }, { text: "two" }, { text: " three" }],
+      at: 7,
+    });
+
+    expect(before).toEqual([{ text: "one two" }]);
+    expect(after).toEqual([{ text: " three" }]);
+  });
+
+  it("refuses an offset that would leave one half empty", () => {
+    const text = RichText.of("three");
+
+    expect(() => RichText.split({ text, at: 0 })).toThrow(TypeError);
+    expect(() => RichText.split({ text, at: 5 })).toThrow(TypeError);
+    expect(() => RichText.split({ text, at: 9 })).toThrow(TypeError);
+    expect(() => RichText.split({ text, at: -1 })).toThrow(TypeError);
+  });
+
+  it("refuses an offset between characters", () => {
+    expect(() =>
+      RichText.split({ text: RichText.of("three"), at: 1.5 }),
+    ).toThrow(TypeError);
+  });
+
+  it("builds halves the schema accepts", () => {
+    const halves = RichText.split({
+      text: RichText.of("one two"),
+      at: 4,
+    });
+
+    for (const half of halves) {
+      expect(Value.Check(TextRunsSchema, half)).toBe(true);
+    }
+  });
+});

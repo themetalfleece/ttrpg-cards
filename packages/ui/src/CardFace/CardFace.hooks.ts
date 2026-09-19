@@ -26,8 +26,11 @@ function pixels(value: string): number {
  *
  * Every child is measured rather than the last one. Their order is the flex
  * container's business, and taking the lowest costs nothing at six children.
+ *
+ * Exported because splitting a card asks the same question of a candidate
+ * card as fitting asks of this one, and one answer to it is enough.
  */
-function contentFitsInside(frame: HTMLElement): boolean {
+export function contentFitsInside(frame: HTMLElement): boolean {
   const style = getComputedStyle(frame);
   const innerBottom =
     frame.getBoundingClientRect().bottom -
@@ -55,6 +58,11 @@ function contentFitsInside(frame: HTMLElement): boolean {
  * the floor stays overflowing, because splitting it across a second card is a
  * different routine's decision.
  *
+ * Given a `fontSizeMillimetres`, it measures nothing and hands that back. A
+ * card of a split set is set at the floor along with the rest of the set, and
+ * a candidate being measured for a split is already at the size the question
+ * is being asked at.
+ *
  * **`card` and `layout` want to be referentially stable.** A new identity is a
  * fresh measurement, and a measurement is around nine style writes each
  * followed by a read, so each one forces that many layouts. Building a layout
@@ -67,15 +75,16 @@ export function useFittedFontSize({
   layout,
   card,
   frameRef,
+  fontSizeMillimetres,
 }: UseFittedFontSizeOptions): number {
-  const [fontSizeMillimetres, setFontSizeMillimetres] = useState(
+  const [measuredMillimetres, setMeasuredMillimetres] = useState(
     layout.fontSizeRange.maximumMillimetres,
   );
 
   useEffect(() => {
     const frame = frameRef.current;
 
-    if (frame === null) {
+    if (frame === null || fontSizeMillimetres !== undefined) {
       return;
     }
 
@@ -94,7 +103,7 @@ export function useFittedFontSize({
       // Left set rather than cleaned up, so the card never paints a frame at
       // the size the last measurement happened to try.
       frame.style.setProperty(CARD_FONT_SIZE_PROPERTY, `${fitted}mm`);
-      setFontSizeMillimetres(fitted);
+      setMeasuredMillimetres(fitted);
     };
 
     measure();
@@ -108,7 +117,11 @@ export function useFittedFontSize({
     return () => {
       observer.disconnect();
     };
-  }, [layout, card, frameRef]);
+  }, [layout, card, frameRef, fontSizeMillimetres]);
 
-  return fontSizeMillimetres;
+  if (fontSizeMillimetres !== undefined) {
+    return fontSizeMillimetres;
+  }
+
+  return measuredMillimetres;
 }

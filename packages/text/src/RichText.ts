@@ -156,6 +156,68 @@ export class RichText {
   }
 
   /**
+   * A span cut in two at a character offset, both halves canonical.
+   *
+   * `at` counts plain characters, so a caller that found a boundary in
+   * {@link RichText.plain} can hand back the offset it found. A run straddling
+   * the cut is divided and both halves keep the marks it carried, which is
+   * what makes splitting a card across a continuation safe: nothing is
+   * re-parsed and no emphasis is lost at the seam.
+   *
+   * Refuses an offset at either end, because an empty half is not a span.
+   *
+   * @example
+   * ```ts
+   * RichText.split({
+   *   text: [{ text: "Loud." }, { text: " Quiet.", marks: ["emphasis"] }],
+   *   at: 5,
+   * });
+   * // [[{ text: "Loud." }], [{ text: " Quiet.", marks: ["emphasis"] }]]
+   *
+   * RichText.split({ text: RichText.of("one"), at: 0 }); // throws TypeError
+   * ```
+   */
+  static split(options: {
+    text: TextRuns;
+    at: number;
+  }): [TextRuns, TextRuns] {
+    const { text, at } = options;
+    const length = RichText.plain(text).length;
+
+    if (!Number.isInteger(at) || at <= 0 || at >= length) {
+      throw new TypeError(
+        `A span can only be cut inside itself: ${at} is not between 1 and ${length - 1}.`,
+      );
+    }
+
+    const before: TextRun[] = [];
+    const after: TextRun[] = [];
+    let consumed = 0;
+
+    for (const run of text) {
+      const start = consumed;
+      consumed += run.text.length;
+
+      if (consumed <= at) {
+        before.push(run);
+        continue;
+      }
+
+      if (start >= at) {
+        after.push(run);
+        continue;
+      }
+
+      const cut = at - start;
+      const marks = RichText.#orderedMarks(run.marks);
+      before.push(RichText.#run(run.text.slice(0, cut), marks));
+      after.push(RichText.#run(run.text.slice(cut), marks));
+    }
+
+    return [RichText.canonical(before), RichText.canonical(after)];
+  }
+
+  /**
    * Runs joined back into plain characters, with the marks dropped, for
    * measuring and searching.
    *

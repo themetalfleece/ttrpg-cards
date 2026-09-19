@@ -1,4 +1,8 @@
-import type { Card, CardLayout } from "@ttrpg-cards/card";
+import type {
+  Card,
+  CardLayout,
+  CardPosition,
+} from "@ttrpg-cards/card";
 import type { RefObject } from "react";
 
 /**
@@ -15,6 +19,17 @@ export interface CardFaceProps {
   card: Card;
   /** The geometry to lay it out at. Every measurement is read from here. */
   layout: CardLayout;
+  /**
+   * Where this card sits in the set it belongs to, shown beside the name.
+   * Left off for a card that stands alone, which is most of them.
+   */
+  position?: CardPosition | undefined;
+  /**
+   * The size to set body text at, for a caller that has already decided one,
+   * such as the routine measuring candidates for a split. Left off, the card
+   * measures itself.
+   */
+  fontSizeMillimetres?: number | undefined;
   /** Passed through for a consumer that positions the face. */
   className?: string | undefined;
 }
@@ -58,4 +73,6 @@ export interface UseFittedFontSizeOptions {
   card: Card;
   /** The card's own element, whose box is what the content has to fit in. */
   frameRef: RefObject<HTMLElement | null>;
+  /** A size decided elsewhere. Given one, the hook measures nothing. */
+  fontSizeMillimetres?: number | undefined;
 }

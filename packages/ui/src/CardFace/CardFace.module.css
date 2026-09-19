@@ -155,6 +155,19 @@
   line-height: 1;
 }
 
+/*
+ * Where a card sits in its set, such as 1/2. It shares the heading row with
+ * the name and is set smaller, so showing it costs the card no height at all.
+ */
+.position {
+  flex: none;
+  color: var(--card-color-text-muted);
+  font-size: var(--card-font-size-meta);
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
+}
+
 .subtitle {
   margin: 0;
   color: var(--card-color-text-muted);

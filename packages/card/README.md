@@ -123,6 +123,51 @@ such as a stored preference read back, and `CardLayout.validate` reports each fa
 path for a settings form to show. Rejected: a dimension that is zero, negative or not finite, a
 negative margin, margins that leave no content area, and a font size range that runs backwards.
 
+## The card set
+
+`CardSet` is one entry laid out across as many cards as its content needs. Most entries are a set
+of one: a card gives up type size first, and a second card is the answer only when the bottom of
+the fitting range was not enough. **Nothing is ever cut to fit.**
+
+**The first card is the whole card. Every card after it is a continuation**, carrying the name,
+the position indicator and the rest of the body. It repeats neither the stat block, which would
+spend the room the split exists to reclaim, nor the badge, subtitle or footer, which would spend
+it on a second copy of what the first card already says. The source travels with the content,
+because the content is what carries its terms.
+
+**Every card of a split set shows where it sits** (`1/2`, `2/2`). A set of one shows nothing:
+there is nothing to count it against. That is `positionAt(index)`, which is `undefined` for a set
+of one, and `faces`, which pairs each card with its position ready for a renderer.
+
+**The set is the unit**, addressed by `id`, the id of the card it was made from. Continuations are
+`<id>~2`, `<id>~3` and so on, so every card stays addressable and the print pipeline can keep the
+set together.
+
+### Where a split falls
+
+`CardSet.split({ card, fits })` knows how a card may be divided and nothing about how tall
+anything is. The caller answers one question about one candidate card, measured as it will be
+rendered, and that is what makes a card cut to another size move the split with no code change.
+`fits` has to be monotonic: content that fits implies less of the same content fits.
+
+- **Block boundaries first**, which includes between the items of a list. Each card takes as much
+  as it will hold before the next one starts, so a set is as short as the content allows.
+- **A sentence end** when one block is too tall for a card of its own and there is no block
+  boundary left to use.
+- **A word end** only when no sentence end is early enough.
+- **Never a word.** A block with no usable boundary left goes on whole and overflows, which is at
+  least visible.
+- **Nothing is dropped.** The whitespace at a cut stays with the opening half, so the halves laid
+  end to end are the text that came in, character for character.
+- **No block is left alone on the last card** while the block before it can be pulled forward and
+  still fit. Block count stands in for the orphan line the rule is about: nothing here measures
+  lines.
+
+The search halves the range rather than stepping through it, because every answer costs the caller
+a measurement. `MAXIMUM_CARDS_PER_SET` is the ceiling: a predicate that answers "no" to everything
+stops there with the rest of the text on the last card, rather than dividing an entry down to
+single words.
+
 ## Boundaries
 
 - Imported by `features/*` and by other packages. Never imports a feature slice or `apps/web`.

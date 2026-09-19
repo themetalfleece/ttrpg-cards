@@ -92,6 +92,17 @@ export const UnbreakableWords: Story = {
   args: { card: unbreakableWordCard },
 };
 
+/**
+ * One card of a set, saying where it sits. The indicator shares the heading
+ * row with the name and is set smaller, so it costs the card no height.
+ */
+export const OneOfASet: Story = {
+  args: {
+    card: spellShapedCard,
+    position: { number: 1, total: 2, label: "1/2" },
+  },
+};
+
 /** The same card under another palette, with nothing about the card changed. */
 export const Recoloured: Story = {
   args: { card: spellShapedCard },
