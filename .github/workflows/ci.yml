@@ -64,3 +64,91 @@ jobs:
 
       - name: Build Storybook
         run: pnpm build-storybook
+
+  catalog:
+    name: Catalog drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Deliberately its own job, and not one the gate depends on. It is the only thing in this
+    # repository that reaches the network for content, so the ability to build and test must not
+    # rest on a third-party CDN being up. When this job is red the catalog needs a look; nothing
+    # else is blocked by it.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Restore only. The matching save runs after the extraction has vouched for the bytes, so a
+      # half-finished download can never be stored under this key. Keyed on the manifest, so the
+      # documents are fetched once and then not again until a pin changes.
+      - name: Restore the licensed documents
+        id: sources
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: packages/srd/.sources
+          key: srd-sources-${{ hashFiles('packages/srd/scripts/sources.ts') }}
+
+      # We do not redistribute the documents, so CI fetches them the same way a person would:
+      # from the licensor's own published URL, outside the source tree. No tracked TypeScript
+      # file fetches anything, and the transmission ban stays whole.
+      #
+      # Each download is checked against its pin here, as well as later inside the extraction.
+      # Checking at the point of download is what keeps a truncated transfer reported as the
+      # fetch failure it is, rather than resurfacing later as a re-issued-document alarm.
+      - name: Fetch the licensed documents
+        id: fetch
+        if: steps.sources.outputs.cache-hit != 'true'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p packages/srd/.sources
+          node packages/srd/scripts/print-sources.ts | while IFS=$'\t' read -r url file sha; do
+            target="packages/srd/.sources/$file"
+            echo "Fetching $file"
+            curl --fail --silent --show-error --location --retry 3 --output "$target" "$url"
+            if ! printf '%s  %s\n' "$sha" "$target" | sha256sum --check --status; then
+              echo "Checksum mismatch for $file, so the transfer was incomplete or the document moved."
+              exit 1
+            fi
+          done
+
+      # A download that failed is the licensor's outage or the runner's network, not a fault in
+      # this change. Say so and stop, rather than reporting it as drift.
+      - name: Report a failed fetch
+        if: steps.fetch.outcome == 'failure'
+        run: |
+          echo "::warning title=Catalog drift not checked::Could not fetch the licensed documents, so the bundled catalog was not re-extracted. This says nothing about the change under test."
+
+      # The extraction verifies each document against its pinned hash before reading a byte, so a
+      # failure here is either a re-issued document (stop and read the new bytes, never re-pin to
+      # make it green) or genuine drift between the script and the data we ship.
+      - name: Re-extract the catalog
+        id: extract
+        if: steps.fetch.outcome != 'failure'
+        run: pnpm --filter @ttrpg-cards/srd extract
+
+      # Only now are the downloaded bytes known good: they matched their pin on the way in and the
+      # extraction read them through a second time. Storing before this point would let one bad
+      # run poison every later one, and the key does not move until a pin changes.
+      - name: Save the licensed documents
+        if: steps.extract.outcome == 'success' && steps.sources.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: packages/srd/.sources
+          key: srd-sources-${{ hashFiles('packages/srd/scripts/sources.ts') }}
+
+      - name: Compare against the committed catalog
+        if: steps.extract.outcome == 'success'
+        run: |
+          if ! git diff --exit-code -- packages/srd/src/catalog/data; then
+            echo "::error title=Catalog drift::The extraction no longer reproduces the committed catalog. Run 'pnpm --filter @ttrpg-cards/srd extract' and commit the result, or work out why the output changed."
+            exit 1
+          fi

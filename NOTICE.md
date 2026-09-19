@@ -50,7 +50,9 @@ Three further rules follow, and none of them are optional:
 
 The extraction pipeline records provenance for every entry: the licensor's own published source,
 pinned by checksum. No third-party mirror, converted dataset, or scrape is used, so the chain of
-custody is verifiable rather than asserted.
+custody is verifiable rather than asserted. The pinned checksums, both statements in full, and
+how to reproduce the extraction are in
+[`packages/srd/CONTENT-LICENSE.md`](./packages/srd/CONTENT-LICENSE.md).
 
 ## Content you import
 

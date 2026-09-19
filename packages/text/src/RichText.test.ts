@@ -161,3 +161,77 @@ describe("RichText.plain", () => {
     );
   });
 });
+
+describe("RichText.marked", () => {
+  it("adds a mark to every run", () => {
+    expect(
+      RichText.marked(RichText.of("loud"), TEXT_MARKS.strong),
+    ).toEqual([{ text: "loud", marks: [TEXT_MARKS.strong] }]);
+  });
+
+  it("keeps a mark a run already carries", () => {
+    expect(
+      RichText.marked(
+        [{ text: "both", marks: [TEXT_MARKS.emphasis] }],
+        TEXT_MARKS.strong,
+      ),
+    ).toEqual([
+      {
+        text: "both",
+        marks: [TEXT_MARKS.strong, TEXT_MARKS.emphasis],
+      },
+    ]);
+  });
+
+  it("says the same thing when applied twice", () => {
+    const once = RichText.marked(
+      RichText.of("loud"),
+      TEXT_MARKS.strong,
+    );
+
+    expect(RichText.marked(once, TEXT_MARKS.strong)).toEqual(once);
+  });
+
+  it("merges neighbours the mark has made alike", () => {
+    expect(
+      RichText.marked(
+        [
+          { text: "one" },
+          { text: " two", marks: [TEXT_MARKS.strong] },
+        ],
+        TEXT_MARKS.strong,
+      ),
+    ).toEqual([{ text: "one two", marks: [TEXT_MARKS.strong] }]);
+  });
+});
+
+describe("RichText.joined", () => {
+  it("lays spans end to end", () => {
+    expect(
+      RichText.joined(
+        [{ text: "one", marks: [TEXT_MARKS.strong] }],
+        RichText.of(", two"),
+      ),
+    ).toEqual([
+      { text: "one", marks: [TEXT_MARKS.strong] },
+      { text: ", two" },
+    ]);
+  });
+
+  it("merges the seam when both sides carry the same marks", () => {
+    expect(
+      RichText.joined(RichText.of("one"), RichText.of(" two")),
+    ).toEqual([{ text: "one two" }]);
+  });
+
+  it("takes a single span unchanged", () => {
+    expect(RichText.joined(RichText.of("alone"))).toEqual([
+      { text: "alone" },
+    ]);
+  });
+
+  it("refuses to build an empty span", () => {
+    expect(() => RichText.joined()).toThrow(TypeError);
+    expect(() => RichText.joined([], [])).toThrow(TypeError);
+  });
+});

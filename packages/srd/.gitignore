@@ -1,0 +1,4 @@
+# The licensed source documents the extraction reads. We redistribute the data we
+# extracted, not the documents themselves; they are fetched by hand from the
+# licensor and checked against a pinned hash. See CONTENT-LICENSE.md.
+.sources

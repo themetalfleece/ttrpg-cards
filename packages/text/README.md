@@ -40,7 +40,14 @@ walking the list its own way.
   split or reordered list validates rather than failing, and normalising it is this package's job.
   Without it the same text has unboundedly many valid spellings and nothing can tell two identical
   cards apart.
+- **`RichText.marked(text, mark)`** adds a mark to every run of a span, for text that carries a
+  meaning its own characters do not. Applying a mark twice says the same thing as applying it once.
+- **`RichText.joined(...spans)`** lays spans end to end, for text assembled from pieces that were
+  marked separately. It refuses to build an empty span, for the same reason `of` refuses an empty
+  string.
 - **`RichText.plain(text)`** flattens runs back to characters, for measuring and searching.
+
+`marked` and `joined` both come back canonical, so no caller has to normalise afterwards.
 
 ## Boundaries
 

@@ -6,3 +6,8 @@ out
 storybook-static
 coverage
 *.local.md
+
+# Generated, and licensed content we redistribute rather than author. The
+# extraction writes these; a formatter re-wrapping them would put the repository
+# out of step with what `pnpm --filter @ttrpg-cards/srd extract` produces.
+packages/srd/src/catalog/data

@@ -11,16 +11,20 @@
     "./*": "./src/*/index.ts"
   },
   "scripts": {
+    "extract": "node scripts/extract.ts",
     "lint": "eslint . --max-warnings 0",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@ttrpg-cards/card": "workspace:*",
+    "@ttrpg-cards/text": "workspace:*",
     "@ttrpg-cards/validator": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "eslint": "catalog:",
+    "pdfjs-dist": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
