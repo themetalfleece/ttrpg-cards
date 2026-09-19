@@ -4,46 +4,6 @@ import type { TextMark, TextRun, TextRuns } from "./text.types";
 /** The order marks are listed in, so one mark set has one spelling. */
 const MARK_ORDER: TextMark[] = Object.values(TEXT_MARKS);
 
-/** A run's marks in that order, or absent when it carries none. */
-function orderedMarks(
-  marks: TextMark[] | undefined,
-): TextMark[] | undefined {
-  if (marks === undefined || marks.length === 0) {
-    return undefined;
-  }
-
-  return MARK_ORDER.filter((mark) => marks.includes(mark));
-}
-
-/** True when two ordered mark lists are the same, so their runs can merge. */
-function sameMarks(
-  left: TextMark[] | undefined,
-  right: TextMark[] | undefined,
-): boolean {
-  if (left === undefined || right === undefined) {
-    return left === undefined && right === undefined;
-  }
-
-  return (
-    left.length === right.length &&
-    left.every((mark, index) => mark === right[index])
-  );
-}
-
-/** A run carrying `text`, with `marks` left off when there are none. */
-function buildRun(
-  text: string,
-  marks: TextMark[] | undefined,
-): TextRun {
-  const run: TextRun = { text };
-
-  if (marks !== undefined) {
-    run.marks = marks;
-  }
-
-  return run;
-}
-
 /**
  * The operations over a span of card text.
  *
@@ -82,21 +42,21 @@ export class RichText {
     const runs: TextRun[] = [];
 
     for (const run of text) {
-      const marks = orderedMarks(run.marks);
+      const marks = RichText.#orderedMarks(run.marks);
       const previous = runs.at(-1);
 
       if (
         previous !== undefined &&
-        sameMarks(previous.marks, marks)
+        RichText.#sameMarks(previous.marks, marks)
       ) {
-        runs[runs.length - 1] = buildRun(
+        runs[runs.length - 1] = RichText.#run(
           `${previous.text}${run.text}`,
           marks,
         );
         continue;
       }
 
-      runs.push(buildRun(run.text, marks));
+      runs.push(RichText.#run(run.text, marks));
     }
 
     return runs;
@@ -105,5 +65,42 @@ export class RichText {
   /** Runs joined back into plain characters, with the marks dropped. */
   static plain(text: TextRuns): string {
     return text.map((run) => run.text).join("");
+  }
+
+  /** A run's marks in that order, or absent when it carries none. */
+  static #orderedMarks(
+    marks: TextMark[] | undefined,
+  ): TextMark[] | undefined {
+    if (marks === undefined || marks.length === 0) {
+      return undefined;
+    }
+
+    return MARK_ORDER.filter((mark) => marks.includes(mark));
+  }
+
+  /** True when two ordered mark lists are the same, so their runs can merge. */
+  static #sameMarks(
+    left: TextMark[] | undefined,
+    right: TextMark[] | undefined,
+  ): boolean {
+    if (left === undefined || right === undefined) {
+      return left === undefined && right === undefined;
+    }
+
+    return (
+      left.length === right.length &&
+      left.every((mark, index) => mark === right[index])
+    );
+  }
+
+  /** A run carrying `text`, with `marks` left off when there are none. */
+  static #run(text: string, marks: TextMark[] | undefined): TextRun {
+    const run: TextRun = { text };
+
+    if (marks !== undefined) {
+      run.marks = marks;
+    }
+
+    return run;
   }
 }

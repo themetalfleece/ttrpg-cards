@@ -10,6 +10,27 @@ from here; `no-restricted-imports` bans importing `typebox` anywhere else.
 import { Type, Value } from "@ttrpg-cards/validator";
 ```
 
+## Reporting failures
+
+`issuesAgainst` turns `Value.Errors` into `ValidationIssue` records, each a JSON pointer into the
+checked value and a message, and `describeIssues` joins a list of them into one line for an error
+message. Both live here rather than beside any one model: the shape a failure is reported in is
+part of the validation surface, so a boundary in the importer, the printer or the catalog reports
+in the same form as one in the card model.
+
+```ts
+const issues = issuesAgainst({
+  schema: CardSchema,
+  value,
+  pathPrefix: "",
+});
+throw new TypeError(describeIssues({ issues, subject: "card" }));
+```
+
+`pathPrefix` roots the pointers somewhere other than the value you handed in, which is what a
+caller checking one element against its own schema needs. `subject` is what the input failed to
+be, and it stands in for the path of a failure that has none.
+
 ## Using it
 
 - **Validate every untrusted boundary**: imported files, pasted text, records read back from

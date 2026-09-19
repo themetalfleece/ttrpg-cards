@@ -87,6 +87,42 @@ record, and the union's member list, all in `card.constants.ts` and `card.schema
 schema fails to compile and a missing union member fails a test, so the set cannot quietly drift
 apart.
 
+## The layout configuration
+
+`CardLayout` is the geometry a card is laid out at: its size, the margins kept inside each edge,
+and the range the fitting routine may scale body text within. Every length is millimetres, so
+screen and print agree; nothing in a layout is ever a pixel.
+
+**A layout is handed to a consumer, never imported as a number.** `CardLayout.default()` is the
+standard card size and is where everything starts; the renderer, the fitting routine and the
+print pipeline read `widthMillimetres`, `contentWidthMillimetres` and the rest off the layout they
+are given. That is what makes the dimensions live: a different size chosen at runtime reaches all
+three without any of them changing.
+
+**It is immutable, deliberately.** Several consumers lay out against the same layout at once, and
+one of them mutating it would change the geometry under the others with nothing to tell them it
+had happened. Changing a size means deriving the next layout and handing that one out:
+
+```ts
+const resized = layout.with({ size: { widthMillimetres: 70 } });
+```
+
+Anything left out of the overrides keeps the value it had, so a size changes without restating
+margins that have nothing to do with it.
+
+**Sizes are presets plus overrides.** `CARD_LAYOUT_PRESETS` in `layout.constants.ts` is the one
+place a card measurement is written down, and a preset is a complete layout rather than a size
+alone, so a size that wants different margins or a different text range can say so. Adding one is
+an entry in that record and nothing else: `CardLayout.fromPreset({ preset, overrides })` picks it
+up and no consumer changes. Only the default ships today.
+
+**Every instance is a usable geometry.** The constructor holds its input to the schema and to the
+relations between fields that a schema cannot state, then copies it, so a consumer reading the
+geometry never has to check it again. `CardLayout.from` is the entry point for untrusted input,
+such as a stored preference read back, and `CardLayout.validate` reports each failure with its
+path for a settings form to show. Rejected: a dimension that is zero, negative or not finite, a
+negative margin, margins that leave no content area, and a font size range that runs backwards.
+
 ## Boundaries
 
 - Imported by `features/*` and by other packages. Never imports a feature slice or `apps/web`.

@@ -19,5 +19,4 @@ export type {
   CardMetaField,
   CardParagraphBlock,
   CardSource,
-  CardValidationIssue,
 } from "./card.types";

@@ -1,5 +1,11 @@
 import { RichText } from "@ttrpg-cards/text";
-import { type TSchema, Value } from "@ttrpg-cards/validator";
+import {
+  type TSchema,
+  Value,
+  type ValidationIssue,
+  describeIssues,
+  issuesAgainst,
+} from "@ttrpg-cards/validator";
 
 import { CARD_BLOCK_KINDS } from "./card.constants";
 import {
@@ -11,7 +17,6 @@ import type {
   CardBlock,
   CardCalloutBlock,
   CardMetaField,
-  CardValidationIssue,
 } from "./card.types";
 
 /**
@@ -26,149 +31,8 @@ const BLOCK_KIND_NAMES = [...BLOCK_SCHEMA_BY_KIND.keys()].join(", ");
 
 const BODY_PATH_PREFIX = "/body/";
 
-/** Every failure of `value` against `schema`, rooted at `pathPrefix`. */
-function issuesAgainst(options: {
-  schema: TSchema;
-  value: unknown;
-  pathPrefix: string;
-}): CardValidationIssue[] {
-  return Value.Errors(options.schema, options.value).map((error) => ({
-    path: `${options.pathPrefix}${error.instancePath}`,
-    message: error.message,
-  }));
-}
-
-/** The `kind` a value declares, or undefined when it declares none. */
-function kindOf(block: unknown): string | undefined {
-  if (
-    typeof block !== "object" ||
-    block === null ||
-    !("kind" in block) ||
-    typeof block.kind !== "string"
-  ) {
-    return undefined;
-  }
-
-  return block.kind;
-}
-
-/** The body array of a value, or undefined when it has no usable one. */
-function bodyOf(value: unknown): unknown[] | undefined {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    !("body" in value)
-  ) {
-    return undefined;
-  }
-
-  return Array.isArray(value.body) ? value.body : undefined;
-}
-
-/**
- * Failures of one block, held only to the schema its own `kind` names.
- *
- * Checking a block against the union instead reports the failures of all
- * three branches at once, most of which are untrue of the input: a paragraph
- * with empty text comes back also missing `items` and holding the wrong
- * `kind`. Reading the kind first turns that into the one real failure.
- */
-function blockIssues(
-  block: unknown,
-  index: number,
-): CardValidationIssue[] {
-  const pathPrefix = `${BODY_PATH_PREFIX}${index}`;
-  const kind = kindOf(block);
-  const schema =
-    kind === undefined ? undefined : BLOCK_SCHEMA_BY_KIND.get(kind);
-
-  if (schema === undefined) {
-    return [
-      {
-        path: `${pathPrefix}/kind`,
-        message: `must be one of ${BLOCK_KIND_NAMES}`,
-      },
-    ];
-  }
-
-  return issuesAgainst({ schema, value: block, pathPrefix });
-}
-
-/** One block with every span of its text in canonical form. */
-function canonicalBlock(block: CardBlock): CardBlock {
-  if (block.kind === CARD_BLOCK_KINDS.list) {
-    return {
-      ...block,
-      items: block.items.map(RichText.canonical),
-    };
-  }
-
-  if (block.kind === CARD_BLOCK_KINDS.callout) {
-    const canonical: CardCalloutBlock = {
-      kind: block.kind,
-      text: RichText.canonical(block.text),
-    };
-
-    if (block.label !== undefined) {
-      canonical.label = RichText.canonical(block.label);
-    }
-
-    return canonical;
-  }
-
-  return { ...block, text: RichText.canonical(block.text) };
-}
-
-/** One stat block entry with both of its spans in canonical form. */
-function canonicalMetaField(field: CardMetaField): CardMetaField {
-  return {
-    label: RichText.canonical(field.label),
-    value: RichText.canonical(field.value),
-  };
-}
-
-/**
- * Every span of text on a card in canonical form, so the same content is the
- * same card whatever runs a parser happened to emit. Identifiers, tags and
- * the attribution are plain strings and are left exactly as they came.
- */
-function canonicalCard(card: Card): Card {
-  const canonical: Card = {
-    ...card,
-    name: RichText.canonical(card.name),
-    meta: card.meta.map(canonicalMetaField),
-    body: card.body.map(canonicalBlock),
-  };
-
-  if (card.badge !== undefined) {
-    canonical.badge = RichText.canonical(card.badge);
-  }
-
-  if (card.subtitle !== undefined) {
-    canonical.subtitle = RichText.canonical(card.subtitle);
-  }
-
-  if (card.footer !== undefined) {
-    canonical.footer = card.footer.map(RichText.canonical);
-  }
-
-  return canonical;
-}
-
-/** One line naming every failure, for an error message. */
-function describeIssues(issues: CardValidationIssue[]): string {
-  const described = issues
-    .map((issue) => {
-      const location =
-        issue.path.length > 0 ? issue.path : "the card";
-      return `${location}: ${issue.message}`;
-    })
-    .join(", ");
-
-  return described.length > 0
-    ? `Not a card. ${described}`
-    : "Not a card.";
-}
+/** What input has failed to be, for an error message. */
+const CARD_SUBJECT = "card";
 
 /**
  * A card and the values derived from it.
@@ -195,16 +59,21 @@ export class CardModel {
   }
 
   /** Every structural failure in `value`, empty when it is a card. */
-  static validate(value: unknown): CardValidationIssue[] {
+  static validate(value: unknown): ValidationIssue[] {
     const cardIssues = issuesAgainst({
       schema: CardSchema,
       value,
       pathPrefix: "",
     }).filter((issue) => !issue.path.startsWith(BODY_PATH_PREFIX));
 
-    const body = bodyOf(value) ?? [];
+    const body = CardModel.#bodyOf(value) ?? [];
 
-    return [...cardIssues, ...body.flatMap(blockIssues)];
+    return [
+      ...cardIssues,
+      ...body.flatMap((block, index) =>
+        CardModel.#blockIssues(block, index),
+      ),
+    ];
   }
 
   /**
@@ -216,11 +85,137 @@ export class CardModel {
   static from(value: unknown): CardModel {
     if (CardModel.isCard(value)) {
       return new CardModel({
-        card: canonicalCard(structuredClone(value)),
+        card: CardModel.#canonicalCard(structuredClone(value)),
       });
     }
 
-    throw new TypeError(describeIssues(CardModel.validate(value)));
+    throw new TypeError(
+      describeIssues({
+        issues: CardModel.validate(value),
+        subject: CARD_SUBJECT,
+      }),
+    );
+  }
+
+  /** The `kind` a value declares, or undefined when it declares none. */
+  static #kindOf(block: unknown): string | undefined {
+    if (
+      typeof block !== "object" ||
+      block === null ||
+      !("kind" in block) ||
+      typeof block.kind !== "string"
+    ) {
+      return undefined;
+    }
+
+    return block.kind;
+  }
+
+  /** The body array of a value, or undefined when it has no usable one. */
+  static #bodyOf(value: unknown): unknown[] | undefined {
+    if (
+      typeof value !== "object" ||
+      value === null ||
+      !("body" in value)
+    ) {
+      return undefined;
+    }
+
+    return Array.isArray(value.body) ? value.body : undefined;
+  }
+
+  /**
+   * Failures of one block, held only to the schema its own `kind` names.
+   *
+   * Checking a block against the union instead reports the failures of all
+   * three branches at once, most of which are untrue of the input: a paragraph
+   * with empty text comes back also missing `items` and holding the wrong
+   * `kind`. Reading the kind first turns that into the one real failure.
+   */
+  static #blockIssues(
+    block: unknown,
+    index: number,
+  ): ValidationIssue[] {
+    const pathPrefix = `${BODY_PATH_PREFIX}${index}`;
+    const kind = CardModel.#kindOf(block);
+    const schema =
+      kind === undefined ? undefined : BLOCK_SCHEMA_BY_KIND.get(kind);
+
+    if (schema === undefined) {
+      return [
+        {
+          path: `${pathPrefix}/kind`,
+          message: `must be one of ${BLOCK_KIND_NAMES}`,
+        },
+      ];
+    }
+
+    return issuesAgainst({
+      schema,
+      value: block,
+      pathPrefix,
+    });
+  }
+
+  /** One block with every span of its text in canonical form. */
+  static #canonicalBlock(block: CardBlock): CardBlock {
+    if (block.kind === CARD_BLOCK_KINDS.list) {
+      return {
+        ...block,
+        items: block.items.map(RichText.canonical),
+      };
+    }
+
+    if (block.kind === CARD_BLOCK_KINDS.callout) {
+      const canonical: CardCalloutBlock = {
+        kind: block.kind,
+        text: RichText.canonical(block.text),
+      };
+
+      if (block.label !== undefined) {
+        canonical.label = RichText.canonical(block.label);
+      }
+
+      return canonical;
+    }
+
+    return { ...block, text: RichText.canonical(block.text) };
+  }
+
+  /** One stat block entry with both of its spans in canonical form. */
+  static #canonicalMetaField(field: CardMetaField): CardMetaField {
+    return {
+      label: RichText.canonical(field.label),
+      value: RichText.canonical(field.value),
+    };
+  }
+
+  /**
+   * Every span of text on a card in canonical form, so the same content is the
+   * same card whatever runs a parser happened to emit. Identifiers, tags and
+   * the attribution are plain strings and are left exactly as they came.
+   */
+  static #canonicalCard(card: Card): Card {
+    const canonical: Card = {
+      ...card,
+      name: RichText.canonical(card.name),
+      meta: card.meta.map(CardModel.#canonicalMetaField),
+      body: card.body.map(CardModel.#canonicalBlock),
+    };
+
+    if (card.badge !== undefined) {
+      canonical.badge = RichText.canonical(card.badge);
+    }
+
+    if (card.subtitle !== undefined) {
+      canonical.subtitle = RichText.canonical(card.subtitle);
+    }
+
+    if (card.footer !== undefined) {
+      canonical.footer = card.footer.map(RichText.canonical);
+    }
+
+    return canonical;
   }
 
   /** The text of one block, with a list's items on their own lines. */

@@ -1,0 +1,336 @@
+import { describe, expect, it } from "vitest";
+
+import { CardLayout } from "./CardLayout";
+import { CARD_LAYOUT_PRESETS } from "./layout.constants";
+import type { CardLayoutSettings } from "./layout.types";
+
+/** A layout with round numbers, for reading the arithmetic off the test. */
+const plainLayout: CardLayoutSettings = {
+  size: { widthMillimetres: 100, heightMillimetres: 200 },
+  margins: {
+    topMillimetres: 5,
+    rightMillimetres: 10,
+    bottomMillimetres: 15,
+    leftMillimetres: 20,
+  },
+  fontSizeRange: { minimumMillimetres: 2, maximumMillimetres: 4 },
+};
+
+describe("CardLayout.default", () => {
+  it("initialises to the standard card size", () => {
+    const layout = CardLayout.default();
+
+    expect(layout.widthMillimetres).toBe(63);
+    expect(layout.heightMillimetres).toBe(88);
+  });
+
+  it("carries margins and a font size range as well as a size", () => {
+    const layout = CardLayout.default();
+
+    expect(layout.margins.topMillimetres).toBeGreaterThan(0);
+    expect(layout.fontSizeRange.minimumMillimetres).toBeLessThan(
+      layout.fontSizeRange.maximumMillimetres,
+    );
+  });
+});
+
+describe("CARD_LAYOUT_PRESETS", () => {
+  it("ships only layouts that are usable geometry", () => {
+    const presets = Object.values(CARD_LAYOUT_PRESETS);
+
+    expect(presets.length).toBeGreaterThan(0);
+    for (const preset of presets) {
+      expect(CardLayout.validate(preset)).toEqual([]);
+    }
+  });
+});
+
+describe("CardLayout.fromPreset", () => {
+  it("falls back to the default preset", () => {
+    expect(CardLayout.fromPreset({}).settings).toEqual(
+      CardLayout.default().settings,
+    );
+  });
+
+  it("applies overrides over the preset it names", () => {
+    const layout = CardLayout.fromPreset({
+      preset: "standard",
+      overrides: { size: { widthMillimetres: 70 } },
+    });
+
+    expect(layout.widthMillimetres).toBe(70);
+    expect(layout.heightMillimetres).toBe(
+      CardLayout.default().heightMillimetres,
+    );
+  });
+
+  it("rejects overrides that leave the geometry unusable", () => {
+    expect(() =>
+      CardLayout.fromPreset({
+        overrides: { size: { widthMillimetres: 1 } },
+      }),
+    ).toThrow(TypeError);
+  });
+});
+
+describe("CardLayout constructor", () => {
+  it("reads back the geometry it was given", () => {
+    const layout = new CardLayout({ settings: plainLayout });
+
+    expect(layout.settings).toEqual(plainLayout);
+    expect(layout.size).toEqual(plainLayout.size);
+    expect(layout.margins).toEqual(plainLayout.margins);
+    expect(layout.fontSizeRange).toEqual(plainLayout.fontSizeRange);
+  });
+
+  it("copies what it is given, so a later edit cannot reach it", () => {
+    const settings = structuredClone(plainLayout);
+    const layout = new CardLayout({ settings });
+
+    settings.size.widthMillimetres = 999;
+
+    expect(layout.widthMillimetres).toBe(100);
+  });
+
+  it("hands out a copy of its settings", () => {
+    const layout = new CardLayout({ settings: plainLayout });
+    const settings = layout.settings;
+
+    settings.size.widthMillimetres = 999;
+
+    expect(layout.widthMillimetres).toBe(100);
+  });
+
+  it("throws when the geometry is not usable", () => {
+    expect(
+      () =>
+        new CardLayout({
+          settings: {
+            ...plainLayout,
+            size: { widthMillimetres: 0, heightMillimetres: 200 },
+          },
+        }),
+    ).toThrow(TypeError);
+  });
+});
+
+describe("CardLayout content area", () => {
+  it("is what the margins leave of the card", () => {
+    const layout = new CardLayout({ settings: plainLayout });
+
+    expect(layout.contentWidthMillimetres).toBe(70);
+    expect(layout.contentHeightMillimetres).toBe(180);
+  });
+
+  it("follows a size chosen at runtime", () => {
+    const layout = new CardLayout({ settings: plainLayout }).with({
+      size: { widthMillimetres: 50 },
+    });
+
+    expect(layout.contentWidthMillimetres).toBe(20);
+  });
+});
+
+describe("CardLayout.with", () => {
+  it("changes the size and leaves the rest alone", () => {
+    const layout = new CardLayout({ settings: plainLayout });
+
+    const resized = layout.with({
+      size: { widthMillimetres: 70, heightMillimetres: 120 },
+    });
+
+    expect(resized.size).toEqual({
+      widthMillimetres: 70,
+      heightMillimetres: 120,
+    });
+    expect(resized.margins).toEqual(plainLayout.margins);
+    expect(resized.fontSizeRange).toEqual(plainLayout.fontSizeRange);
+  });
+
+  it("changes one side of a group and keeps the others", () => {
+    const layout = new CardLayout({ settings: plainLayout }).with({
+      margins: { topMillimetres: 1 },
+    });
+
+    expect(layout.margins).toEqual({
+      ...plainLayout.margins,
+      topMillimetres: 1,
+    });
+  });
+
+  it("leaves the layout it came from unchanged", () => {
+    const layout = new CardLayout({ settings: plainLayout });
+
+    layout.with({ size: { widthMillimetres: 50 } });
+
+    expect(layout.widthMillimetres).toBe(100);
+  });
+
+  it("rejects a change that leaves the geometry unusable", () => {
+    const layout = new CardLayout({ settings: plainLayout });
+
+    expect(() =>
+      layout.with({ size: { widthMillimetres: 25 } }),
+    ).toThrow(/left and right margin/);
+  });
+});
+
+describe("CardLayout.from", () => {
+  it("builds a layout from a record read back from storage", () => {
+    expect(CardLayout.from(plainLayout).settings).toEqual(
+      plainLayout,
+    );
+  });
+
+  it("names what is wrong with input that is not a layout", () => {
+    expect(() => CardLayout.from(null)).toThrow(TypeError);
+    expect(() => CardLayout.from({})).toThrow(/Not a card layout\./);
+  });
+
+  it("rejects a record carrying a field a layout does not have", () => {
+    expect(() =>
+      CardLayout.from({ ...plainLayout, bleedMillimetres: 3 }),
+    ).toThrow(TypeError);
+  });
+
+  it("rejects a record whose fields are each fine but do not fit", () => {
+    expect(() =>
+      CardLayout.from({
+        ...plainLayout,
+        size: { widthMillimetres: 25, heightMillimetres: 200 },
+      }),
+    ).toThrow(/left and right margin/);
+  });
+});
+
+describe("CardLayout.isCardLayoutSettings", () => {
+  it("accepts a usable geometry", () => {
+    expect(CardLayout.isCardLayoutSettings(plainLayout)).toBe(true);
+  });
+
+  it("rejects input that is not a layout at all", () => {
+    expect(CardLayout.isCardLayoutSettings(null)).toBe(false);
+    expect(CardLayout.isCardLayoutSettings(undefined)).toBe(false);
+    expect(CardLayout.isCardLayoutSettings({})).toBe(false);
+  });
+
+  it("rejects a layout whose fields are each fine but do not fit", () => {
+    expect(
+      CardLayout.isCardLayoutSettings({
+        ...plainLayout,
+        size: { widthMillimetres: 25, heightMillimetres: 200 },
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("CardLayout.validate", () => {
+  it("reports nothing for a usable geometry", () => {
+    expect(CardLayout.validate(plainLayout)).toEqual([]);
+  });
+
+  it("rejects a dimension of zero or less", () => {
+    const issues = CardLayout.validate({
+      ...plainLayout,
+      size: { widthMillimetres: 0, heightMillimetres: -1 },
+    });
+
+    expect(issues.map((issue) => issue.path)).toEqual([
+      "/size/widthMillimetres",
+      "/size/heightMillimetres",
+    ]);
+  });
+
+  it("rejects a dimension that is not a finite number", () => {
+    for (const widthMillimetres of [
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+    ]) {
+      const issues = CardLayout.validate({
+        ...plainLayout,
+        size: { widthMillimetres, heightMillimetres: 200 },
+      });
+
+      expect(issues[0]?.path).toBe("/size/widthMillimetres");
+    }
+  });
+
+  it("rejects a negative margin", () => {
+    const issues = CardLayout.validate({
+      ...plainLayout,
+      margins: { ...plainLayout.margins, topMillimetres: -1 },
+    });
+
+    expect(issues[0]?.path).toBe("/margins/topMillimetres");
+  });
+
+  it("rejects side margins that do not fit across the card", () => {
+    const issues = CardLayout.validate({
+      ...plainLayout,
+      size: { widthMillimetres: 30, heightMillimetres: 200 },
+    });
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.path).toBe("/margins");
+    expect(issues[0]?.message).toContain("left and right margin");
+  });
+
+  it("rejects margins that do not fit down the card", () => {
+    const issues = CardLayout.validate({
+      ...plainLayout,
+      size: { widthMillimetres: 100, heightMillimetres: 20 },
+    });
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.path).toBe("/margins");
+    expect(issues[0]?.message).toContain("top and bottom margin");
+  });
+
+  it("rejects margins that leave the card exactly no content area", () => {
+    const issues = CardLayout.validate({
+      ...plainLayout,
+      size: { widthMillimetres: 30, heightMillimetres: 20 },
+    });
+
+    expect(issues).toHaveLength(2);
+  });
+
+  it("rejects an inverted font size range", () => {
+    const issues = CardLayout.validate({
+      ...plainLayout,
+      fontSizeRange: {
+        minimumMillimetres: 4,
+        maximumMillimetres: 2,
+      },
+    });
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.path).toBe("/fontSizeRange");
+    expect(issues[0]?.message).toContain("smallest size upwards");
+  });
+
+  it("accepts a font size range pinned to one size", () => {
+    expect(
+      CardLayout.validate({
+        ...plainLayout,
+        fontSizeRange: {
+          minimumMillimetres: 3,
+          maximumMillimetres: 3,
+        },
+      }),
+    ).toEqual([]);
+  });
+
+  it("reports a failure at the root for input of the wrong type", () => {
+    const issues = CardLayout.validate(42);
+
+    expect(issues.length).toBeGreaterThan(0);
+    expect(issues[0]?.path).toBe("");
+  });
+
+  it("reports a missing group rather than throwing", () => {
+    const issues = CardLayout.validate({ size: plainLayout.size });
+
+    expect(issues.length).toBeGreaterThan(0);
+  });
+});
