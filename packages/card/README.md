@@ -1,6 +1,6 @@
 # `@ttrpg-cards/card`
 
-The card domain model, its schemas, and the layout configuration.
+The card domain model, its schemas, and the layout and theme configuration.
 
 Owns the shape of a card and the dimensions it is laid out at. **The default card dimensions are
 declared here and nowhere else.** They initialise a live, runtime-changeable property that the
@@ -167,6 +167,20 @@ The search halves the range rather than stepping through it, because every answe
 a measurement. `MAXIMUM_CARDS_PER_SET` is the ceiling: a predicate that answers "no" to everything
 stops there with the rest of the text on the last card, rather than dividing an entry down to
 single words.
+
+## The themes
+
+`CARD_THEMES` names the colour themes a card can be drawn in, and `isCardThemeId` is the guard a
+stored preference is read back through, since a theme that was dropped leaves a stale id behind
+in a browser that saved it.
+
+**Names only. No colour value is ever written here.** What a theme looks like is a block of
+custom properties in `@ttrpg-cards/ui`, beside the card face that reads them, and the renderer
+is the only thing that knows what "parchment" is made of.
+
+This sits next to `CARD_LAYOUT_PRESETS` for the same reason the sizes do: a theme and a size are
+both card configuration the user picks and `@ttrpg-cards/storage` persists, and storage validates
+what it read back against this package rather than taking a dependency on the renderer.
 
 ## Boundaries
 

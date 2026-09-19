@@ -1,4 +1,9 @@
-import type { Card, CardLayout, CardSet } from "@ttrpg-cards/card";
+import type {
+  Card,
+  CardLayout,
+  CardSet,
+  CardThemeId,
+} from "@ttrpg-cards/card";
 import type { Root } from "react-dom/client";
 
 /**
@@ -13,6 +18,11 @@ export interface CardSetViewProps {
   card: Card;
   /** The geometry to lay it out at. Every measurement is read from here. */
   layout: CardLayout;
+  /**
+   * The colour theme every card of the set is drawn in. One entry is one
+   * theme: a continuation in another colour would not read as the same card.
+   */
+  theme?: CardThemeId | undefined;
   /** Passed through for a consumer that positions the set. */
   className?: string | undefined;
 }

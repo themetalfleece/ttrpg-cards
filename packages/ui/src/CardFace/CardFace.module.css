@@ -23,6 +23,29 @@
 }
 
 .card {
+  /*
+   * The card's proportions: how much larger a title is than the body, and how
+   * much air goes between regions. Ratios and never lengths, because a card's
+   * size is a runtime property of the layout, so the renderer works out what
+   * each one comes to in millimetres against the live font size.
+   *
+   * They live here rather than in the document theme because the card face is
+   * the only thing that reads them, and they are the same whichever colour
+   * theme a card is drawn in.
+   */
+  --card-scale-name: 1.7;
+  --card-scale-badge: 1.4;
+  --card-scale-badge-diameter: 1.9;
+  --card-scale-subtitle: 0.95;
+  --card-scale-meta: 0.85;
+  --card-scale-stat-label: 0.7;
+  --card-scale-footer: 0.8;
+  --card-scale-space-tight: 0.25;
+  --card-scale-space-normal: 0.55;
+  --card-scale-space-loose: 0.9;
+  --card-scale-rule: 0.06;
+  --card-scale-radius: 0.8;
+
   --card-space-tight: calc(
     var(--card-font-size) * var(--card-scale-space-tight)
   );

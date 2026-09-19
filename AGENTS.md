@@ -42,14 +42,14 @@ ttrpg-cards/
 
 | Package                  | Owns                                                                 |
 | ------------------------ | -------------------------------------------------------------------- |
-| `@ttrpg-cards/card`      | card domain model, schemas, layout configuration                     |
+| `@ttrpg-cards/card`      | card domain model, schemas, layout and theme configuration           |
 | `@ttrpg-cards/core`      | generic building blocks that do not belong to another package        |
 | `@ttrpg-cards/srd`       | bundled openly-licensed catalog, extraction, provenance, attribution |
 | `@ttrpg-cards/importer`  | JSON and Markdown parsing into the card model                        |
 | `@ttrpg-cards/printer`   | sheet layout, pagination, PDF generation                             |
 | `@ttrpg-cards/storage`   | IndexedDB persistence, local preferences                             |
 | `@ttrpg-cards/text`      | rich text runs, the marks they carry, and their canonical form       |
-| `@ttrpg-cards/ui`        | Radix-based primitives, card renderer, themes                        |
+| `@ttrpg-cards/ui`        | Radix-based primitives, card renderer, the document theme            |
 | `@ttrpg-cards/validator` | TypeBox re-export, the single validation surface                     |
 
 **Dependency direction points inward:** `apps/web` → `features/*` → `packages/*`. `packages/*` never import `features/*` or app code; `features/*` never import `apps/web`. This keeps the app shell swappable and the logic testable in isolation.
@@ -87,10 +87,13 @@ These are the constraints the project exists under. They are not style preferenc
 
 ### Styling
 
-- Use CSS Modules exclusively (`.module.css` files) with native CSS nesting.
+- Use CSS Modules (`.module.css` files) with native CSS nesting. **The one exception is a stylesheet whose selector is not a class**, such as the card palettes matched on `data-card-theme`: a consumer may set that attribute on any surface above a card, so the selector cannot be scoped to the module that reads it. Such a file lives in the component's directory, is imported by the component, and declares nothing but custom properties. Reach for it only when a class genuinely cannot carry the selector; a global stylesheet is otherwise the thing CSS Modules exist to avoid.
 - No CSS utility libraries (Tailwind, etc.). No preprocessors (no Sass/SCSS); plain CSS covers all our needs (nesting, variables, media queries).
-- **The theme lives in `packages/ui/src/theme.css`** and declares every colour, spacing, typography, shape, and elevation custom property. `apps/web/app/globals.css` imports it and adds only document-level resets.
-- **Never hardcode colours, spacing, or typography.** All values must use custom properties from the theme. Add new variables there when needed.
+- **The document theme lives in `packages/ui/src/theme.css`** and declares the colour, spacing, typography, shape, and elevation properties more than one part of the app shares. `apps/web/app/globals.css` imports it and adds only document-level resets.
+- **Never hardcode colours, spacing, or typography.** All values must use custom properties. Add new ones when needed.
+- **Declare a custom property at the narrowest scope that covers everything reading it.** A property only one component reads belongs in that component's directory, not in the document theme: `theme.css` is for what the app shares, and a value sitting there that one stylesheet reads is a global whose blast radius is a lie. It also costs every page the bytes. The card's colour themes and type scale are the worked example, in `CardFace/CardFace.themes.css` and `CardFace/CardFace.module.css`, and they are bundled with the card renderer rather than with the document.
+- **A card colour theme is a block of custom properties in `packages/ui/src/CardFace/CardFace.themes.css` plus an entry in `CARD_THEMES`, and never anything else.** The card face names its theme through `data-card-theme` and reads the roles; adding one is those two edits, and the stories and the contrast checks pick it up from the registry. A component that branches on a theme's name, or a stylesheet elsewhere that names a card colour, has moved the palette back into the code.
+- **`@ttrpg-cards/card` names the themes; `@ttrpg-cards/ui` draws them.** The registry is identity and selection only (`CARD_THEMES`, `CardThemeId`, `isCardThemeId`), which is why it sits beside `CARD_LAYOUT_PRESETS`: both are card configuration a user picks and `@ttrpg-cards/storage` persists, and storage must not depend on a React package to validate what it read back. No CSS and no colour value ever enters `@ttrpg-cards/card`.
 - **The ambient module declaration for `*.module.css` lives once, in `types/css-modules.d.ts`.** Any package that imports a stylesheet adds that path to its tsconfig `include` (`"../../types/css-modules.d.ts"`). Never re-declare it per package: six copies of the same declaration is exactly the duplication that drifts. `apps/web` is the exception: `next-env.d.ts` already supplies it.
 
 ### Component Structure
@@ -178,13 +181,15 @@ Not every file is required. Only create what the component needs.
 - **The default's measurements appear in exactly two places**: the preset that declares them, and the test that pins them. A test asserting the default against the constant it came from proves nothing, so that one names the numbers.
 - **The domain model carries content, never layout.** No field names a position on the card, and no schema caps a length because a region looks small. Ordered lists let the theme decide how to set them out, and what actually fits is the fitting routine's call against live dimensions. A `maxLength` written for a layout reason is a card measurement in disguise, and it rejects a user's content for something the model is not entitled to know.
 - **Geometry reaches CSS as custom properties set inline from the layout**, never as a value in a stylesheet. The component sets `--card-width`, `--card-height`, the four margins and `--card-font-size` from the layout it is handed; the stylesheet reads those and works in ratios of them. A rule that wants a measurement has to ask for a property that exists, which is what keeps a card size out of the CSS.
-- **The card's type scale and spacing are ratios in the theme, not lengths.** `--card-scale-*` say how much larger a title is than the body; the renderer works out what that is in millimetres against the live font size. A length in the theme would be pinned to one card size.
+- **The card's type scale and spacing are ratios, not lengths.** `--card-scale-*` say how much larger a title is than the body; the renderer works out what that is in millimetres against the live font size. A length there would be pinned to one card size. They are declared on `.card` itself, in `CardFace.module.css`, because the card face is the only thing that reads them.
 - **A ratio below 1 is clamped to the layout's minimum font size.** Legibility is a length, not a ratio: a ratio follows the body text down and would scale a label past the point it can be read. The floor lives with the geometry, and the renderer resolves the whole scale once so every region gets the clamp.
 - **The card gives up type size, never its box.** Fitting measures the rendered card and scales the text; the card's dimensions are what it is cut to and do not move. Content that will not fit at the bottom of the range is a second card, never a smaller card and never a cut word.
 - **An entry is a set, and a set is usually one card.** `CardSet` in `@ttrpg-cards/card` owns where a split falls; `CardSetView` in `@ttrpg-cards/ui` is what a consumer renders when the content might not fit. The first card is the whole card, every card after it carries the name and the rest of the body and repeats no other region, and a split set is set at the bottom of the range throughout. A card of a set shows its position (`1/2`); a card that stands alone shows nothing.
 - **A cut lands at a block boundary, then a sentence end, then a word end, and never inside a word.** Whitespace at a cut stays with the opening half, so the halves laid end to end are the text that came in. A block with no usable boundary left goes on whole and overflows, which is at least visible.
 - **Measuring is the caller's job, not the routine's.** `CardLayout.fittedFontSize` and `CardSet.split` both take one predicate and know nothing about how tall anything is, which is what keeps them pure, testable and independent of the browser. A predicate answers by rendering the real thing and reading back where its content lands, never by estimating from character counts.
-- **Every colour a card sets text on meets WCAG AA**, and a test in `@ttrpg-cards/ui` holds the theme to it by reading the stylesheet. Contrast is computed from relative luminance, so passing it is also the grayscale check.
+- **Every colour a card sets text on meets WCAG AA**, and a test in `@ttrpg-cards/ui` holds every theme to it by reading the stylesheet. Contrast is computed from relative luminance, so passing it is also the grayscale check.
+- **Cards are made to be printed, usually on a mono laser printer, so a theme may never separate one region from another by hue.** Every boundary meets WCAG's 3:1 for non-text, either across the two fills or along the rule drawn between them, and the same test enforces it. Prefer the rule: a fill heavy enough to carry a boundary on its own drinks ink and grays out flat, which is why the tinted region is held to a tint rather than a fill.
+- **A dark-scheme override is scoped to `screen`, always.** A media query with no media type means `all`, which includes print, and `prefers-color-scheme` still reports the desktop's setting while a page is printing. Unscoped, a dark palette prints as near-white text on white paper or as a sheet of solid ink. The card's fills are held to a luminance floor on paper for the same reason: contrast is symmetric and scores a black card with white text exactly as well as the white card we meant.
 - Structure work so additional card sizes can be added without touching the renderer.
 
 ### Storage

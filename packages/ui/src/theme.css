@@ -1,9 +1,15 @@
 /*
- * The theme. Every colour, space, and type value in the workspace resolves to a
- * custom property declared here, so component styles never hardcode a value.
+ * The document theme: the colour, spacing, typography, shape and elevation
+ * properties the whole app is drawn from, so component styles never hardcode a
+ * value.
  *
- * Card geometry is deliberately absent: dimensions are a runtime property of the
- * layout configuration, not a style constant.
+ * What a card is drawn in is not here. A card's colours and its type scale are
+ * read only by the card face, so they are declared beside it, in
+ * `CardFace/CardFace.themes.css` and `CardFace/CardFace.module.css`. This file
+ * is for values more than one part of the app shares.
+ *
+ * Card geometry is deliberately absent too: dimensions are a runtime property
+ * of the layout configuration, not a style constant.
  */
 
 :root {
@@ -46,39 +52,6 @@
   --line-height-tight: 1.25;
   --line-height-body: 1.5;
 
-  /*
-   * Card face. Colour roles and ratios, never lengths: a card's size is a
-   * runtime property of the layout, so the theme says how much larger a title
-   * is than the body and the renderer works out what that is in millimetres.
-   * The colour roles are the seam a per-card theme overrides on one card
-   * without touching the document.
-   *
-   * A ratio below 1 scales down only as far as the layout's minimum font
-   * size, which the renderer clamps every derived size to. Legibility is a
-   * length rather than a ratio, so the floor lives with the geometry and the
-   * scale here says nothing about it.
-   */
-  --card-color-surface: var(--color-surface-raised);
-  --card-color-surface-tinted: var(--color-surface-sunken);
-  --card-color-border: var(--color-border);
-  --card-color-text: var(--color-text);
-  --card-color-text-muted: var(--color-text-muted);
-  --card-color-accent: var(--color-accent);
-  --card-color-badge-surface: var(--color-accent);
-  --card-color-badge-text: var(--color-accent-contrast);
-  --card-scale-name: 1.7;
-  --card-scale-badge: 1.4;
-  --card-scale-badge-diameter: 1.9;
-  --card-scale-subtitle: 0.95;
-  --card-scale-meta: 0.85;
-  --card-scale-stat-label: 0.7;
-  --card-scale-footer: 0.8;
-  --card-scale-space-tight: 0.25;
-  --card-scale-space-normal: 0.55;
-  --card-scale-space-loose: 0.9;
-  --card-scale-rule: 0.06;
-  --card-scale-radius: 0.8;
-
   /* Shape */
   --radius-small: 2px;
   --radius-medium: 4px;
@@ -92,7 +65,10 @@
   --shadow-overlay: 0 8px 24px rgb(0 0 0 / 18%);
 }
 
-@media (prefers-color-scheme: dark) {
+/* Dark is a screen preference, so it is scoped to screens: a query with no
+ * media type is `all`, which includes print, and paper is white whatever the
+ * desktop is set to. */
+@media screen and (prefers-color-scheme: dark) {
   :root {
     --color-surface: #161513;
     --color-surface-raised: #211f1c;

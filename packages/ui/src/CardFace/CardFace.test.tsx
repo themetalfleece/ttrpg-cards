@@ -1,8 +1,10 @@
 import {
+  CARD_THEMES,
   type Card,
   CardLayout,
   CardModel,
   type CardPosition,
+  type CardThemeId,
 } from "@ttrpg-cards/card";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -21,6 +23,7 @@ function markupFor(options: {
   card: Card;
   layout?: CardLayout;
   position?: CardPosition;
+  theme?: CardThemeId;
   fontSizeMillimetres?: number;
 }): string {
   const layout = options.layout ?? CardLayout.default();
@@ -30,6 +33,7 @@ function markupFor(options: {
       card={options.card}
       layout={layout}
       position={options.position}
+      theme={options.theme}
       fontSizeMillimetres={options.fontSizeMillimetres}
     />,
   );
@@ -134,6 +138,35 @@ describe("CardFace", () => {
     expect(
       markupFor({ card: spellShapedCard, fontSizeMillimetres: 2.1 }),
     ).toContain("--card-font-size:2.1mm");
+  });
+
+  it("names the theme it is drawn in, and nothing else about it", () => {
+    const markup = markupFor({
+      card: spellShapedCard,
+      theme: "moss",
+    });
+
+    expect(markup).toContain('data-card-theme="moss"');
+    // Colour is the stylesheet's business. A theme that reached the markup as
+    // a value would be a colour hardcoded in a component by another route.
+    expect(markup).not.toContain("--card-color");
+  });
+
+  it("renders every theme as the same card", () => {
+    const faces = CARD_THEMES.map((theme) =>
+      markupFor({ card: spellShapedCard, theme: theme.id }),
+    );
+
+    for (const face of faces) {
+      expect(textOf(face)).toBe(textOf(faces[0] ?? ""));
+    }
+    expect(new Set(faces).size).toBe(CARD_THEMES.length);
+  });
+
+  it("takes the theme around it when it is given none", () => {
+    expect(markupFor({ card: spellShapedCard })).not.toContain(
+      "data-card-theme",
+    );
   });
 
   it("renders sample cards the model accepts", () => {

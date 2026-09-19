@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { CardLayout } from "@ttrpg-cards/card";
+import { CARD_THEMES, CardLayout } from "@ttrpg-cards/card";
 
 import { CardSetView } from "./CardSetView.component";
 import { overflowingCard, settledCard } from "./CardSetView.fixtures";
@@ -10,6 +10,12 @@ const meta = {
   title: "Primitives/CardSetView",
   component: CardSetView,
   args: { layout: defaultLayout },
+  argTypes: {
+    theme: {
+      control: "select",
+      options: CARD_THEMES.map((theme) => theme.id),
+    },
+  },
 } satisfies Meta<typeof CardSetView>;
 
 export default meta;
@@ -44,6 +50,11 @@ export const SmallerCard: Story = {
       },
     }),
   },
+};
+
+/** A split entry in a theme, which every card of the set is drawn in. */
+export const Themed: Story = {
+  args: { card: overflowingCard, theme: "slate" },
 };
 
 /** The same entry on a larger card, which it fits on with room to spare. */

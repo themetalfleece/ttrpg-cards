@@ -26,6 +26,7 @@ import type { CardSetViewProps } from "./CardSetView.types";
 export function CardSetView({
   card,
   layout,
+  theme,
   className,
 }: CardSetViewProps) {
   const set = useCardSet({ card, layout });
@@ -41,6 +42,7 @@ export function CardSetView({
           card={face.card}
           layout={layout}
           position={face.position}
+          theme={theme}
           fontSizeMillimetres={fontSizeMillimetres}
         />
       ))}

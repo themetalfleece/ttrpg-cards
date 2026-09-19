@@ -12,6 +12,9 @@ import { BodyBlock } from "./BodyBlock/BodyBlock.component";
 import { cardFaceStyle } from "./CardFace.data";
 import { useFittedFontSize } from "./CardFace.hooks";
 import styles from "./CardFace.module.css";
+// The palettes the `data-card-theme` attribute below selects between. Global
+// rather than a module, so they ship wherever a card does.
+import "./CardFace.themes.css";
 import type { CardFaceProps } from "./CardFace.types";
 import { StatBlock } from "./StatBlock/StatBlock.component";
 
@@ -30,11 +33,15 @@ import { StatBlock } from "./StatBlock/StatBlock.component";
  * card's box never changes: a card is cut to a size and the type gives way.
  *
  * A card carrying a `position` is one of a set, and says so beside its name.
+ *
+ * Colour is a theme, named on the card and read from the stylesheet, so the
+ * face knows which theme it is wearing and nothing about what is in it.
  */
 export function CardFace({
   card,
   layout,
   position,
+  theme,
   fontSizeMillimetres,
   className,
 }: CardFaceProps) {
@@ -57,6 +64,7 @@ export function CardFace({
     <article
       ref={frameRef}
       className={clsx(styles.card, className)}
+      data-card-theme={theme}
       style={style}
     >
       <header className={styles.header}>

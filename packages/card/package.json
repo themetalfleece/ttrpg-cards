@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "The card domain model, its schemas, and the layout configuration.",
+  "description": "The card domain model, its schemas, and the layout and theme configuration.",
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",

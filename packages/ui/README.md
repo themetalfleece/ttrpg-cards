@@ -17,10 +17,57 @@ import { CardFace } from "@ttrpg-cards/ui/CardFace";
 That is also how a primitive reaches another primitive, including from an inner component
 directory where a relative path would have to climb two levels.
 
-The theme lives in [`src/theme.css`](./src/theme.css) and declares every colour, spacing,
-typography, shape and elevation custom property, in both light and dark. **Never hardcode a
-colour, a spacing or a type value.** Add a variable there instead. `apps/web/app/globals.css`
-imports this file and adds only document-level resets.
+The document theme lives in [`src/theme.css`](./src/theme.css) and declares the colour, spacing,
+typography, shape and elevation properties more than one part of the app shares, in both light
+and dark. **Never hardcode a colour, a spacing or a type value.** Add a custom property instead,
+**at the narrowest scope that covers everything reading it**: a property one component reads
+belongs in that component's directory, not here. `apps/web/app/globals.css` imports this file and
+adds only document-level resets.
+
+What a card is drawn in is the worked example. Its colours and its type scale are read only by
+the card face, so they live beside it and are bundled with the renderer rather than the document.
+
+## Card colour themes
+
+A card is drawn in one of the themes listed in `CARD_THEMES`, chosen per card:
+
+```tsx
+<CardFace card={card} layout={layout} theme="parchment" />
+```
+
+The names live in [`@ttrpg-cards/card`](../card), beside the card size presets, because both are
+card configuration a user picks and `@ttrpg-cards/storage` persists. What each one looks like
+lives here, in [`CardFace.themes.css`](./src/CardFace/CardFace.themes.css): one block of custom
+properties matched on `data-card-theme`, and nothing else. No colour value ever enters the card
+package, and the face never learns a theme's name.
+
+So **adding a theme is a block of values in `CardFace.themes.css` and an entry in
+`CARD_THEMES`**, with no component to touch. It picks up the stories and every check below on its
+own. Leave `theme` off and the card takes the theme of the surface it stands on, so a sheet can
+be themed in one place and a card can still choose for itself.
+
+Only the neutral theme follows the colour scheme, and only on a screen: the dark override is
+scoped to `@media screen`, so a card printed from a dark page is the card a light page would have
+printed. A chosen theme does not follow the scheme at all, because parchment is parchment at
+midnight.
+
+Themes are cut for paper, and
+[`CardFace.themes.test.ts`](./src/CardFace/CardFace.themes.test.ts) holds every one of them to it
+by reading the stylesheets rather than a copy of their values. It measures each theme on a light
+screen, on a dark screen and on paper, working out which blocks reach each from the media
+conditions themselves:
+
+- **WCAG AA on every colour a card sets text on.** Contrast comes from relative luminance and
+  ignores hue, so a pair that passes reads in grayscale too. That is one measurement, not two.
+- **Every boundary between regions separated by luminance**, to WCAG's 3:1 for non-text, met
+  either across the two fills or along the rule drawn between them. This is the check that
+  matters on a mono laser printer: a theme separating its stat block from its body by hue alone
+  prints as one flat gray rectangle.
+- **The tinted region stays a tint.** A fill heavy enough to carry a boundary by itself drinks
+  ink and grays out badly, so the rule around it does that job instead.
+- **On paper, the card's fills clear a luminance floor.** Contrast is symmetric and scores a
+  black card with white text exactly as well as the white card we meant, so it cannot tell a
+  printable card from an unprintable one. The floor can.
 
 ## The card face
 

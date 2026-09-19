@@ -1,9 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { CardLayout } from "@ttrpg-cards/card";
+import { CARD_THEMES, CardLayout } from "@ttrpg-cards/card";
 import { Box } from "@ttrpg-cards/ui/Box";
 import type { CSSProperties } from "react";
 
-import { parchmentPalette } from "../theme.fixtures";
 import { CardFace } from "./CardFace.component";
 import {
   gearShapedCard,
@@ -27,10 +26,36 @@ const smallestTypeLayout = defaultLayout.with({
   },
 });
 
+/** The gallery below, laid out in theme values so it hardcodes nothing. */
+const THEME_GALLERY_STYLE: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "var(--space-5)",
+  alignItems: "flex-start",
+};
+
+const THEME_SWATCH_STYLE: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "var(--space-2)",
+};
+
+const THEME_LABEL_STYLE: CSSProperties = {
+  color: "var(--color-text-muted)",
+  fontFamily: "var(--font-family-sans)",
+  fontSize: "var(--font-size-small)",
+};
+
 const meta = {
   title: "Primitives/CardFace",
   component: CardFace,
   args: { layout: defaultLayout },
+  argTypes: {
+    theme: {
+      control: "select",
+      options: CARD_THEMES.map((theme) => theme.id),
+    },
+  },
 } satisfies Meta<typeof CardFace>;
 
 export default meta;
@@ -103,14 +128,34 @@ export const OneOfASet: Story = {
   },
 };
 
-/** The same card under another palette, with nothing about the card changed. */
-export const Recoloured: Story = {
+/** One card in a theme of its own, which is all choosing a theme amounts to. */
+export const Themed: Story = {
+  args: { card: spellShapedCard, theme: "parchment" },
+};
+
+/**
+ * Every theme the app ships, side by side.
+ *
+ * Read from the registry rather than written out, so a theme added to it and
+ * to the stylesheet appears here with nothing else to do. Storybook names its
+ * stories statically, so an export per theme would be the hand-written step
+ * the themes exist to avoid.
+ *
+ * Squint at this, or print it: the themes differ in hue and hold the same
+ * shape in luminance, which is the whole of the grayscale rule.
+ */
+export const Themes: Story = {
   args: { card: spellShapedCard },
-  decorators: [
-    (Story) => (
-      <Box style={parchmentPalette as CSSProperties}>
-        <Story />
-      </Box>
-    ),
-  ],
+  render: (args) => (
+    <Box style={THEME_GALLERY_STYLE}>
+      {CARD_THEMES.map((theme) => (
+        <Box key={theme.id} style={THEME_SWATCH_STYLE}>
+          <Box as="span" style={THEME_LABEL_STYLE}>
+            {theme.name}
+          </Box>
+          <CardFace {...args} theme={theme.id} />
+        </Box>
+      ))}
+    </Box>
+  ),
 };

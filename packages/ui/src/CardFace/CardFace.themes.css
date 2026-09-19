@@ -1,0 +1,113 @@
+/*
+ * What each card theme looks like.
+ *
+ * A theme is one block of the roles below, matched on `data-card-theme`, and
+ * that is the whole of it: the face sets the attribute and reads the roles, so
+ * adding a theme is a block here and an entry in `CARD_THEMES`. The properties
+ * inherit, so setting the attribute on a wrapper themes every card inside it
+ * and a card that sets its own still wins.
+ *
+ * Global rather than a module because the attribute is the selector: a card
+ * sets it, and so may any surface above one.
+ *
+ * Themes are cut for paper. Most people print on a mono laser printer, where
+ * only luminance survives, so every theme separates its regions by luminance
+ * and none of them leans on hue to do it: the surfaces stay a step apart at
+ * most and the rules between them carry the structure. That also keeps the
+ * fills light, which is what a printer would rather be asked for.
+ *
+ * `CardFace.themes.test.ts` holds every theme to both of those, reading this
+ * file rather than a copy of its values.
+ */
+:root,
+[data-card-theme="ink"] {
+  --card-color-surface: #ffffff;
+  --card-color-surface-tinted: #f1efe9;
+  --card-color-border: #8c857a;
+  --card-color-text: #1f1d18;
+  --card-color-text-muted: #5f5a4e;
+  --card-color-accent: #7a4b2a;
+  --card-color-badge-surface: #7a4b2a;
+  --card-color-badge-text: #ffffff;
+}
+
+[data-card-theme="parchment"] {
+  --card-color-surface: #fdf7ea;
+  --card-color-surface-tinted: #f6ecd6;
+  --card-color-border: #8a7340;
+  --card-color-text: #241d0f;
+  --card-color-text-muted: #5a4a24;
+  --card-color-accent: #7a3410;
+  --card-color-badge-surface: #7a3410;
+  --card-color-badge-text: #fdf7ea;
+}
+
+[data-card-theme="slate"] {
+  --card-color-surface: #f7f9fb;
+  --card-color-surface-tinted: #e8eef3;
+  --card-color-border: #6b7f8d;
+  --card-color-text: #14191d;
+  --card-color-text-muted: #4a5761;
+  --card-color-accent: #1d4a6b;
+  --card-color-badge-surface: #1d4a6b;
+  --card-color-badge-text: #f7f9fb;
+}
+
+[data-card-theme="moss"] {
+  --card-color-surface: #f7faf5;
+  --card-color-surface-tinted: #e7f0e2;
+  --card-color-border: #6c8460;
+  --card-color-text: #161c12;
+  --card-color-text-muted: #4a5842;
+  --card-color-accent: #2a5130;
+  --card-color-badge-surface: #2a5130;
+  --card-color-badge-text: #f7faf5;
+}
+
+[data-card-theme="ember"] {
+  --card-color-surface: #fdf8f5;
+  --card-color-surface-tinted: #f7e8e0;
+  --card-color-border: #95725f;
+  --card-color-text: #201512;
+  --card-color-text-muted: #5e463c;
+  --card-color-accent: #8a2f14;
+  --card-color-badge-surface: #8a2f14;
+  --card-color-badge-text: #fdf8f5;
+}
+
+[data-card-theme="plum"] {
+  --card-color-surface: #faf7fb;
+  --card-color-surface-tinted: #eee6f2;
+  --card-color-border: #7d6b88;
+  --card-color-text: #1a141d;
+  --card-color-text-muted: #544a5c;
+  --card-color-accent: #5a2a6b;
+  --card-color-badge-surface: #5a2a6b;
+  --card-color-badge-text: #faf7fb;
+}
+
+/*
+ * Dark is a screen preference, so it is scoped to screens. A query with no
+ * media type is `all`, which includes print, and `prefers-color-scheme` still
+ * reports the desktop's setting while a page is printing: unscoped, this block
+ * would put near-white body text on white paper, or a solid black rectangle
+ * where the card should be. Paper falls through to the values above, which are
+ * the ones cut for it.
+ *
+ * Only the neutral theme follows the page, so the app reads right at night. A
+ * chosen theme does not follow it at all: parchment is parchment at midnight,
+ * the same way the card it stands in for would be.
+ */
+@media screen and (prefers-color-scheme: dark) {
+  :root,
+  [data-card-theme="ink"] {
+    --card-color-surface: #211f1c;
+    --card-color-surface-tinted: #1a1815;
+    --card-color-border: #8a8279;
+    --card-color-text: #f2efe8;
+    --card-color-text-muted: #a9a29a;
+    --card-color-accent: #d99a6c;
+    --card-color-badge-surface: #d99a6c;
+    --card-color-badge-text: #161513;
+  }
+}

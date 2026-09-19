@@ -8,10 +8,15 @@
  * one are the card's business, not the layout's. A short stat block takes one
  * line, a long one takes three, and neither needs a column width chosen in
  * advance that the other would be wrong at.
+ *
+ * The rule around it is what separates it from the body, not the tint. A tint
+ * heavy enough to carry the boundary by itself would cost a page of ink and
+ * still gray out flat on a mono laser printer.
  */
 .statBlock {
   margin: 0;
   padding: var(--card-space-tight) var(--card-space-normal);
+  border: var(--card-rule-width) solid var(--card-color-border);
   border-radius: calc(
     var(--card-font-size) * var(--card-scale-radius)
   );

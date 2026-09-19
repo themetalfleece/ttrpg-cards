@@ -2,6 +2,7 @@ import type {
   Card,
   CardLayout,
   CardPosition,
+  CardThemeId,
 } from "@ttrpg-cards/card";
 import type { RefObject } from "react";
 
@@ -24,6 +25,15 @@ export interface CardFaceProps {
    * Left off for a card that stands alone, which is most of them.
    */
   position?: CardPosition | undefined;
+  /**
+   * The colour theme to draw the card in.
+   *
+   * Left off, the card takes the theme of the surface it stands on, which is
+   * the neutral one unless an ancestor sets `data-card-theme`. The attribute
+   * is omitted rather than defaulted for that reason: a sheet themed in one
+   * place keeps its colour, and a card naming a theme still wins.
+   */
+  theme?: CardThemeId | undefined;
   /**
    * The size to set body text at, for a caller that has already decided one,
    * such as the routine measuring candidates for a split. Left off, the card

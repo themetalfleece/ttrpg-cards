@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Radix-based primitives, the card renderer, and the theme tokens.",
+  "description": "Radix-based primitives, the card renderer, and the document theme.",
   "sideEffects": [
     "*.css"
   ],
