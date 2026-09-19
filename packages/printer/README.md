@@ -3,7 +3,7 @@
 Sheet layout, pagination, and PDF generation.
 
 Works in **millimetres throughout**, never pixels, so the printed result matches what is on
-screen. Card dimensions are read from the layout configuration in `@ttrpg-cards/core`, and this
+screen. Card dimensions are read from the layout configuration in `@ttrpg-cards/card`, and this
 package never hardcodes one.
 
 Keeps a card and its continuations on the same sheet run: when text overflows onto a continuation

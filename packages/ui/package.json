@@ -21,7 +21,7 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
-    "@ttrpg-cards/core": "workspace:*",
+    "@ttrpg-cards/card": "workspace:*",
     "clsx": "catalog:",
     "radix-ui": "catalog:"
   },

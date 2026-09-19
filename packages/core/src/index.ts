@@ -1,2 +1,2 @@
-/** Card domain model, schemas, and layout configuration. See README.md. */
+/** Generic building blocks shared across packages. See README.md. */
 export {};

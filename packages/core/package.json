@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Card domain model, schemas, and layout configuration.",
+  "description": "Generic building blocks that do not belong to another package.",
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",

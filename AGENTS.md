@@ -37,22 +37,26 @@ ttrpg-cards/
     web/          # Next.js App Router app (thin wrapper: static export config, routes, layouts)
   features/       # feature slices: UI + logic, testable without the framework
   packages/       # @ttrpg-cards/* workspace packages (each with an explicit `exports` surface)
-    core/ srd/ importer/ printer/ storage/ ui/ validator/
+    card/ core/ srd/ importer/ printer/ storage/ text/ ui/ validator/
 ```
 
 | Package                  | Owns                                                                 |
 | ------------------------ | -------------------------------------------------------------------- |
-| `@ttrpg-cards/core`      | card domain model, schemas, layout configuration                     |
+| `@ttrpg-cards/card`      | card domain model, schemas, layout configuration                     |
+| `@ttrpg-cards/core`      | generic building blocks that do not belong to another package        |
 | `@ttrpg-cards/srd`       | bundled openly-licensed catalog, extraction, provenance, attribution |
 | `@ttrpg-cards/importer`  | JSON and Markdown parsing into the card model                        |
 | `@ttrpg-cards/printer`   | sheet layout, pagination, PDF generation                             |
 | `@ttrpg-cards/storage`   | IndexedDB persistence, local preferences                             |
+| `@ttrpg-cards/text`      | rich text runs, the marks they carry, and their canonical form       |
 | `@ttrpg-cards/ui`        | Radix-based primitives, card renderer, themes                        |
 | `@ttrpg-cards/validator` | TypeBox re-export, the single validation surface                     |
 
 **Dependency direction points inward:** `apps/web` → `features/*` → `packages/*`. `packages/*` never import `features/*` or app code; `features/*` never import `apps/web`. This keeps the app shell swappable and the logic testable in isolation.
 
 A feature slice is a workspace package named `@ttrpg-cards/feature-<slice>` living in `features/<slice>/`. A capability becomes a `packages/*` entry instead when it wraps a third-party dependency we want swappable, or when it is reused across features and must not drift.
+
+**Packages hold domain logic, not only third-party wrappers.** The card model and its schemas are `@ttrpg-cards/card` because `srd`, `importer`, `printer`, `storage` and `ui` all depend on them, and `packages/*` may never import `features/*`. Putting the model in a feature would invert the dependency direction for five packages at once. A feature slice is a slice of the app's UI and behaviour; it is not the home for the vocabulary every slice speaks.
 
 ## Content Rules (non-negotiable)
 
@@ -137,6 +141,9 @@ Not every file is required. Only create what the component needs.
 - **Use TypeBox for all runtime JSON-boundary validation.** All schemas import from **`@ttrpg-cards/validator`**, which re-exports TypeBox (`typebox` v1, **not** the legacy `@sinclair/typebox` v0) so we have a single, swappable validation surface. Never import `typebox` directly outside `@ttrpg-cards/validator`.
 - Define declarative schemas and validate with `Value.Check` / `Value.Errors`; do not build parallel field-by-field validator trees by hand.
 - **Validate every untrusted boundary**: imported files, pasted text, stored records read back from the browser, and URL/query state. Then keep any cross-field/domain assertions a structural schema cannot express as small named helpers.
+- **Text the reader sees is rich text; identifiers, keys and attribution are plain strings.** A field rendered on a card is `TextRuns` from `@ttrpg-cards/text`, so any of it can carry emphasis and every consumer handles one shape rather than asking which kind of text it was handed. Ids and search keys never render, and an attribution has to be reproduced exactly as the licensor wrote it, so neither belongs in a structure built to merge and normalise runs.
+- **Markup is never stored in a string.** Emphasis is structured, and markdown is an import format: the importer parses it into runs on the way in. A string holding syntax makes every reader of the model a parser, and the one that forgets is quietly wrong.
+- **A wire-format key follows the ecosystem's spelling, not our prose's.** Our documentation writes "licence"; the JSON key is `license`, because that is what manifests, licence identifiers and other tools write. Schemas reject unknown fields, which turns a spelling difference into a rejected file rather than an ignored key.
 - **Keep reusable wire-format patterns in shared `*.schemas.ts` files** (or a package-level validation module) and compose them into object schemas. Never embed validation regexes in execution or rendering code.
 
 ### Dependency Encapsulation & Package Boundaries
@@ -155,9 +162,10 @@ Not every file is required. Only create what the component needs.
 
 ### Card Geometry and Units
 
-- **Dimensions are a live property, not a constant.** Card width and height initialise from the default declared in `@ttrpg-cards/core` and can be changed at runtime; the renderer, the text-fitting routine, and the print pipeline all read from that property.
+- **Dimensions are a live property, not a constant.** Card width and height initialise from the default declared in `@ttrpg-cards/card` and can be changed at runtime; the renderer, the text-fitting routine, and the print pipeline all read from that property.
 - **Nothing outside that default declaration may hardcode a card dimension.** If you find yourself typing a card measurement into a component or a stylesheet, read it from the layout configuration instead.
 - **Physical units throughout**: millimetres, never pixels, so screen and print agree.
+- **The domain model carries content, never layout.** No field names a position on the card, and no schema caps a length because a region looks small. Ordered lists let the theme decide how to set them out, and what actually fits is the fitting routine's call against live dimensions. A `maxLength` written for a layout reason is a card measurement in disguise, and it rejects a user's content for something the model is not entitled to know.
 - Structure work so additional card sizes can be added without touching the renderer.
 
 ### Storage
@@ -220,6 +228,7 @@ Applies to everything written here: comments, docs, READMEs, identifiers, and us
 - **All utility functions, helpers, parsers, and pure hooks must have thorough unit tests.** Every exported function in a package's `src/**/*.ts`, and in `.data.ts` / `.hooks.ts` files, should be covered.
 - Use `describe` blocks grouped by function/class with clear `it` descriptions. Mock external dependencies (storage, `fetch`, timers) with `vi.spyOn` / `vi.mock` and restore in `afterEach`.
 - **Edge cases are mandatory**: zero/empty inputs, malformed input, missing data, error paths, boundary conditions, not just the happy path.
+- **Sample data shared by more than one test file goes in `<module>.fixtures.ts`** beside those tests, never in a `.test.ts` that another test imports. Keep fixtures out of the package barrel: they are test input, not public API.
 - Packages run in Vitest's default Node environment. `@ttrpg-cards/ui` runs in `jsdom`, configured in `packages/ui/vitest.config.ts`.
 
 ## Code Quality (Required)

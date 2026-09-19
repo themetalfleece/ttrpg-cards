@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ttrpg-cards/core": "workspace:*",
+    "@ttrpg-cards/card": "workspace:*",
     "@ttrpg-cards/importer": "workspace:*",
     "@ttrpg-cards/printer": "workspace:*",
     "@ttrpg-cards/srd": "workspace:*",

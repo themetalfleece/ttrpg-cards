@@ -12,11 +12,12 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   transpilePackages: [
-    "@ttrpg-cards/core",
+    "@ttrpg-cards/card",
     "@ttrpg-cards/importer",
     "@ttrpg-cards/printer",
     "@ttrpg-cards/srd",
     "@ttrpg-cards/storage",
+    "@ttrpg-cards/text",
     "@ttrpg-cards/ui",
     "@ttrpg-cards/validator",
   ],

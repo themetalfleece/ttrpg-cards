@@ -53,8 +53,15 @@ const IMPORT_BANS = {
     message:
       "Dependencies point inward. A package may not import a feature slice.",
   },
+  cardModel: {
+    group: ["@ttrpg-cards/card", "@ttrpg-cards/card/*"],
+    message:
+      "Text is a leaf and knows nothing about cards. The card model depends on it, not the other way round.",
+  },
   domainPackages: {
     group: [
+      "@ttrpg-cards/card",
+      "@ttrpg-cards/card/*",
       "@ttrpg-cards/core",
       "@ttrpg-cards/core/*",
       "@ttrpg-cards/importer",
@@ -65,6 +72,8 @@ const IMPORT_BANS = {
       "@ttrpg-cards/srd/*",
       "@ttrpg-cards/storage",
       "@ttrpg-cards/storage/*",
+      "@ttrpg-cards/text",
+      "@ttrpg-cards/text/*",
     ],
     message:
       "`apps/web` composes feature slices. Reach domain packages through a `features/*` slice instead.",
@@ -241,6 +250,19 @@ export default defineConfig([
       "no-restricted-imports": restrictImports(
         without(PACKAGE_IMPORT_BANS, ["validationLibrary"]),
       ),
+    },
+  },
+
+  {
+    // The card model is the obvious thing to reach for when a text helper
+    // wants context, so the leaf stays a leaf by rule rather than by habit.
+    name: "ttrpg-cards/packages/text",
+    files: ["packages/text/**/*.ts"],
+    rules: {
+      "no-restricted-imports": restrictImports([
+        ...PACKAGE_IMPORT_BANS,
+        "cardModel",
+      ]),
     },
   },
 

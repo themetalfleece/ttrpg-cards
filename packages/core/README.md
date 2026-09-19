@@ -1,17 +1,21 @@
 # `@ttrpg-cards/core`
 
-The card domain model, its schemas, and the layout configuration.
+Generic building blocks that do not belong to another package.
 
-Owns the shape of a card and the dimensions it is laid out at. **The default card dimensions are
-declared here and nowhere else.** They initialise a live, runtime-changeable property that the
-renderer, the text-fitting routine and the print pipeline all read from. If you find yourself
-typing a card measurement into a component or a stylesheet, read it from the layout configuration
-instead.
+Empty on purpose. The card model moved to [`@ttrpg-cards/card`](../card) and rich text to
+[`@ttrpg-cards/text`](../text), because both have an owner and a name that says what they are.
+This package is for the genuinely cross-cutting thing that turns up later and fits nowhere else.
 
-Nothing here knows about rendering, persistence, printing, or the framework.
+## Before you put something here
+
+"Core" is the name most likely to accrete unrelated code, because nobody can argue that something
+does not belong in it. So the bar is: **name the concept first**. If you can name it, it wants its
+own package or a home in the one that owns the concept. If two packages need the same helper and
+neither owns it, that is what this package is for.
 
 ## Boundaries
 
-- Imported by `features/*` and by other packages. Never imports a feature slice or `apps/web`.
+- Imported by `packages/*` and `features/*`. Never imports a feature slice or `apps/web`.
+- Nothing here knows about cards. Card-shaped code goes in `@ttrpg-cards/card`.
 - Schemas are defined with `@ttrpg-cards/validator`, never by importing the validation library
   directly.
