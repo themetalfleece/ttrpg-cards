@@ -490,6 +490,9 @@ importers:
       '@ttrpg-cards/card':
         specifier: workspace:*
         version: link:../card
+      '@ttrpg-cards/text':
+        specifier: workspace:*
+        version: link:../text
       clsx:
         specifier: 'catalog:'
         version: 2.1.1

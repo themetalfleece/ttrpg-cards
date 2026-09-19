@@ -1,0 +1,187 @@
+/*
+ * The card face. Every length resolves to a custom property set from the
+ * layout, so nothing here names a measurement and a different card size is the
+ * same stylesheet.
+ *
+ * `.card` is also where the lengths the regions inside it work in are
+ * declared. They are absolute by the time they inherit down, so a stat block
+ * or a body block reads one property rather than repeating the arithmetic.
+ *
+ * Text is free to overflow the face. Keeping it inside is the fitting
+ * routine's job, and hiding the overflow would hide that from whoever is
+ * looking at the card.
+ */
+/*
+ * A card carries its own box model rather than trusting the page's. A region
+ * that stretches to the card's width and then adds padding is wider than the
+ * card unless padding counts inside the width, and that is a printed card
+ * bleeding past its own trim, not a layout quirk.
+ */
+.card,
+.card * {
+  box-sizing: border-box;
+}
+
+.card {
+  --card-space-tight: calc(
+    var(--card-font-size) * var(--card-scale-space-tight)
+  );
+  --card-space-normal: calc(
+    var(--card-font-size) * var(--card-scale-space-normal)
+  );
+  --card-space-loose: calc(
+    var(--card-font-size) * var(--card-scale-space-loose)
+  );
+  --card-rule-width: calc(
+    var(--card-font-size) * var(--card-scale-rule)
+  );
+
+  /*
+   * The type scale, resolved once. Anything set smaller than the body stops at
+   * the layout's floor: a ratio moves with the body, so on its own it would
+   * follow the fitting routine down past the point where the text can be read.
+   */
+  --card-font-size-name: calc(
+    var(--card-font-size) * var(--card-scale-name)
+  );
+  --card-font-size-badge: calc(
+    var(--card-font-size) * var(--card-scale-badge)
+  );
+  --card-font-size-subtitle: max(
+    calc(var(--card-font-size) * var(--card-scale-subtitle)),
+    var(--card-font-size-minimum)
+  );
+  --card-font-size-stat-label: max(
+    calc(var(--card-font-size) * var(--card-scale-stat-label)),
+    var(--card-font-size-minimum)
+  );
+  --card-font-size-meta: max(
+    calc(var(--card-font-size) * var(--card-scale-meta)),
+    var(--card-font-size-minimum)
+  );
+  --card-font-size-footer: max(
+    calc(var(--card-font-size) * var(--card-scale-footer)),
+    var(--card-font-size-minimum)
+  );
+
+  /* Wide enough for the glyphs a badge holds, and round because it is a pill. */
+  --card-badge-size: calc(
+    var(--card-font-size-badge) * var(--card-scale-badge-diameter)
+  );
+
+  /* What the separators inside the card are drawn at, so they match its border. */
+  --separator-thickness: var(--card-rule-width);
+  --separator-color: var(--card-color-border);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-space-normal);
+  width: var(--card-width);
+  height: var(--card-height);
+  padding: var(--card-margin-top) var(--card-margin-right)
+    var(--card-margin-bottom) var(--card-margin-left);
+  border: var(--card-rule-width) solid var(--card-color-border);
+  border-radius: calc(
+    var(--card-font-size) * var(--card-scale-radius)
+  );
+  background: var(--card-color-surface);
+  color: var(--card-color-text);
+  font-family: var(--font-family-serif);
+  font-size: var(--card-font-size);
+  line-height: var(--line-height-body);
+  overflow: visible;
+
+  /*
+   * A word too long for the line breaks rather than running out of the side of
+   * the card. Fitting measures height, and a block child keeps its container's
+   * width however far its text pokes out, so sideways overflow is invisible
+   * both to the routine and to the technique it measures with. Breaking the
+   * word turns it into height, which is the axis that is actually watched.
+   *
+   * Not the `overflow-wrap` the stat cells used to carry. That one could never
+   * fire, because each cell was already at least as wide as its longest word.
+   * The stat block is running text in a block now and has no such floor.
+   */
+  overflow-wrap: break-word;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-space-tight);
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--card-space-normal);
+}
+
+.name {
+  /*
+   * A flex item will not shrink below its longest word unless it is told it
+   * may, and breaking the word does not lower that floor. Without this the
+   * name of a card runs out of the side, where fitting cannot see it.
+   */
+  min-width: 0;
+  margin: 0;
+  font-size: var(--card-font-size-name);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-tight);
+}
+
+/*
+ * A filled disc, widening to a pill when the badge holds more than a glyph or
+ * two. The badge is the one place on the face where colour carries meaning
+ * rather than decorating, so it takes the accent and its contrast pair.
+ */
+.badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: var(--card-badge-size);
+  height: var(--card-badge-size);
+  padding-inline: var(--card-space-tight);
+  border-radius: var(--radius-pill);
+  background: var(--card-color-badge-surface);
+  color: var(--card-color-badge-text);
+  font-size: var(--card-font-size-badge);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--card-color-text-muted);
+  font-size: var(--card-font-size-subtitle);
+  font-style: italic;
+  line-height: var(--line-height-tight);
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--card-space-normal);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--card-space-normal);
+  margin: 0;
+  padding: 0;
+  color: var(--card-color-text-muted);
+  font-size: var(--card-font-size-footer);
+  line-height: var(--line-height-tight);
+  list-style: none;
+}
+
+.footerItem {
+  /* Same reason as the name: a flex item needs leave to shrink and break. */
+  min-width: 0;
+  margin: 0;
+}

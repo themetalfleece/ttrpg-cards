@@ -1,0 +1,38 @@
+/*
+ * The body blocks. Spacing and rule weight come from the card these sit on,
+ * which declares them against its own live font size, so a block set out here
+ * scales with the card without knowing a measurement.
+ */
+.paragraph {
+  margin: 0;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-space-tight);
+  margin: 0;
+  padding-left: var(--card-space-loose);
+}
+
+.listItem {
+  margin: 0;
+}
+
+.callout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-space-tight);
+  padding-left: var(--card-space-normal);
+  border-left: var(--card-rule-width) solid var(--card-color-accent);
+}
+
+.calloutLabel {
+  margin: 0;
+  color: var(--card-color-accent);
+  font-weight: var(--font-weight-bold);
+}
+
+.calloutText {
+  margin: 0;
+}

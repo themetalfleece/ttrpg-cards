@@ -334,3 +334,87 @@ describe("CardLayout.validate", () => {
     expect(issues.length).toBeGreaterThan(0);
   });
 });
+
+describe("CardLayout.fittedFontSize", () => {
+  const range = { minimumMillimetres: 2, maximumMillimetres: 4 };
+  const layout = CardLayout.default().with({ fontSizeRange: range });
+
+  it("gives up nothing when the content already fits", () => {
+    expect(layout.fittedFontSize({ fits: () => true })).toBe(
+      range.maximumMillimetres,
+    );
+  });
+
+  it("bottoms out at the floor when nothing in the range fits", () => {
+    expect(layout.fittedFontSize({ fits: () => false })).toBe(
+      range.minimumMillimetres,
+    );
+  });
+
+  it("finds the largest size that fits", () => {
+    const fitted = layout.fittedFontSize({
+      fits: (size) => size <= 3,
+    });
+
+    expect(fitted).toBeLessThanOrEqual(3);
+    expect(fitted).toBeGreaterThan(2.99);
+  });
+
+  it("never answers outside the range", () => {
+    for (const threshold of [1, 2, 2.5, 3.25, 4, 5]) {
+      const fitted = layout.fittedFontSize({
+        fits: (size) => size <= threshold,
+      });
+
+      expect(fitted).toBeGreaterThanOrEqual(range.minimumMillimetres);
+      expect(fitted).toBeLessThanOrEqual(range.maximumMillimetres);
+    }
+  });
+
+  // 1.13 / 0.01 is 112.99999999999999 in binary floating point, so snapping the
+  // answer to the grid used to drop it a whole step below the layout's floor.
+  it("does not round a floor that sits between grid steps below itself", () => {
+    for (const minimumMillimetres of [1.13, 2.29, 3.57]) {
+      const layout = CardLayout.default().with({
+        fontSizeRange: { minimumMillimetres, maximumMillimetres: 4 },
+      });
+
+      expect(layout.fittedFontSize({ fits: () => false })).toBe(
+        minimumMillimetres,
+      );
+    }
+  });
+
+  it("answers on the precision grid rather than to fifteen decimal places", () => {
+    const fitted = layout.fittedFontSize({
+      fits: (size) => size <= 2.718281828,
+    });
+
+    expect(fitted).toBe(Math.round(fitted * 100) / 100);
+  });
+
+  // Halving rather than stepping is what makes this affordable for a caller
+  // that measures the browser once per candidate.
+  it("asks about a bounded number of candidates", () => {
+    let asked = 0;
+
+    layout.fittedFontSize({
+      fits: (size) => {
+        asked += 1;
+
+        return size <= 2.5;
+      },
+    });
+
+    expect(asked).toBeLessThanOrEqual(12);
+  });
+
+  it("handles a range with no room to move", () => {
+    const fixed = CardLayout.default().with({
+      fontSizeRange: { minimumMillimetres: 3, maximumMillimetres: 3 },
+    });
+
+    expect(fixed.fittedFontSize({ fits: () => false })).toBe(3);
+    expect(fixed.fittedFontSize({ fits: () => true })).toBe(3);
+  });
+});

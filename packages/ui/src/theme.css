@@ -46,10 +46,45 @@
   --line-height-tight: 1.25;
   --line-height-body: 1.5;
 
+  /*
+   * Card face. Colour roles and ratios, never lengths: a card's size is a
+   * runtime property of the layout, so the theme says how much larger a title
+   * is than the body and the renderer works out what that is in millimetres.
+   * The colour roles are the seam a per-card theme overrides on one card
+   * without touching the document.
+   *
+   * A ratio below 1 scales down only as far as the layout's minimum font
+   * size, which the renderer clamps every derived size to. Legibility is a
+   * length rather than a ratio, so the floor lives with the geometry and the
+   * scale here says nothing about it.
+   */
+  --card-color-surface: var(--color-surface-raised);
+  --card-color-surface-tinted: var(--color-surface-sunken);
+  --card-color-border: var(--color-border);
+  --card-color-text: var(--color-text);
+  --card-color-text-muted: var(--color-text-muted);
+  --card-color-accent: var(--color-accent);
+  --card-color-badge-surface: var(--color-accent);
+  --card-color-badge-text: var(--color-accent-contrast);
+  --card-scale-name: 1.7;
+  --card-scale-badge: 1.4;
+  --card-scale-badge-diameter: 1.9;
+  --card-scale-subtitle: 0.95;
+  --card-scale-meta: 0.85;
+  --card-scale-stat-label: 0.7;
+  --card-scale-footer: 0.8;
+  --card-scale-space-tight: 0.25;
+  --card-scale-space-normal: 0.55;
+  --card-scale-space-loose: 0.9;
+  --card-scale-rule: 0.06;
+  --card-scale-radius: 0.8;
+
   /* Shape */
   --radius-small: 2px;
   --radius-medium: 4px;
   --radius-large: 8px;
+  /* Larger than any box it is used on, which is how a pill stays a pill. */
+  --radius-pill: 999px;
   --border-width-hairline: 1px;
 
   /* Elevation */

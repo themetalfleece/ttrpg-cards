@@ -1,0 +1,52 @@
+/*
+ * The stat block, set as running text: label then value, field after field,
+ * wrapping wherever the line runs out. Spacing, rule weight and type size come
+ * from the card these sit on, which declares them against its own live font
+ * size.
+ *
+ * Text rather than cells because the number of fields and the length of each
+ * one are the card's business, not the layout's. A short stat block takes one
+ * line, a long one takes three, and neither needs a column width chosen in
+ * advance that the other would be wrong at.
+ */
+.statBlock {
+  margin: 0;
+  padding: var(--card-space-tight) var(--card-space-normal);
+  border-radius: calc(
+    var(--card-font-size) * var(--card-scale-radius)
+  );
+  background: var(--card-color-surface-tinted);
+  font-size: var(--card-font-size-meta);
+  line-height: var(--line-height-tight);
+}
+
+/* Inline, so a field that will not fit breaks across lines like any prose. */
+.statField {
+  display: inline;
+}
+
+/*
+ * A dot between neighbours, and nothing before the first. The spaces around it
+ * are part of the content rather than margins, so the line can break either
+ * side of the dot instead of carrying it along with the words it sits between.
+ *
+ * The empty alt text keeps it out of the accessibility tree: it separates
+ * fields for the eye, and the list markup already separates them for anything
+ * reading the card aloud.
+ */
+.statField + .statField::before {
+  content: " · " / "";
+  color: var(--card-color-text-muted);
+}
+
+.statLabel {
+  display: inline;
+  color: var(--card-color-accent);
+  font-size: var(--card-font-size-stat-label);
+  font-weight: var(--font-weight-bold);
+}
+
+.statValue {
+  display: inline;
+  margin: 0;
+}

@@ -107,6 +107,8 @@ ComponentName/
   ComponentName.data.ts         # Computation and data-shaping logic
   ComponentName.schemas.ts      # TypeBox schemas guarding this component's boundaries
   ComponentName.stories.tsx     # Storybook story (primitives in @ttrpg-cards/ui)
+  ComponentName.fixtures.ts     # Sample values shared by the tests and the stories
+  ComponentName.test.tsx        # Unit tests, beside the code they cover
   index.ts                      # Public export barrel
 ```
 
@@ -129,14 +131,16 @@ Not every file is required. Only create what the component needs.
 ### Inner Components
 
 - Use inner components for repeated or distinct UI fragments within a feature directory. Inner components drop the parent's prefix (file `TitleRow.component.tsx`, export `TitleRow`) since the surrounding directory conveys scope; only re-add the parent prefix when an inner name would otherwise be too generic to read at a glance.
-- Inner components live in the same directory as their parent, not in a separate top-level directory.
+- **An inner component gets its own directory inside its parent's** (`CardFace/BodyBlock/BodyBlock.component.tsx`), never a separate top-level one and never files sitting flat beside the parent's. It keeps the same file layout as any other component, its own `.module.css` included, so the rules that style it travel with it.
+- **An inner directory gets no `index.ts`.** A package's `exports` map maps `"./*"` to `"./src/*/index.ts"`, and `*` matches slashes, so a barrel there would make `@ttrpg-cards/ui/CardFace/BodyBlock` a resolvable public import. The parent's barrel stays the only public surface.
+- **An inner component reaches a primitive by its named subpath**, `import { RichTextView } from "@ttrpg-cards/ui/RichTextView"`, not by a relative path. From an inner directory the relative route would be `../../`, which is banned, and the subpath is what the import convention below asks for anyway. Self-referencing a package by its own name resolves through the same `exports` map and needs no self-dependency.
 
 ### Imports
 
 - **No parent-relative imports two or more levels up.** Never import from `../../` (or deeper).
 - Use `@/...` for cross-directory imports **inside `apps/web`** (the alias resolves to `apps/web/`). Reach feature slices and packages by their workspace names (`@ttrpg-cards/feature-<slice>` and `@ttrpg-cards/<package>`), never through a relative path or a `src/` path.
 - Import package primitives from their named subpath: `import { Card } from "@ttrpg-cards/ui/Card"`. Each package's `exports` map keeps the surface explicit and tree-shakeable.
-- Sibling imports (`./foo`) and one-level parent-relative imports (`../foo`) are both fine. The latter is how an inner component reaches a sibling inner component within the same parent feature directory.
+- Sibling imports (`./foo`) and one-level parent-relative imports (`../foo`) are both fine. The latter is how an inner component reaches something in its parent's directory.
 - The `no-restricted-imports` ESLint rule enforces these boundaries, including the direction of dependencies and the ownership rules below.
 
 ### Runtime Validation
@@ -173,6 +177,11 @@ Not every file is required. Only create what the component needs.
 - **Name a preset for the size, never for a game or product cut to it.** The default is `standard`, the size most trading and playing cards are made at. Naming it after one of them would be both a game name in the repo and wrong, since the size belongs to none of them.
 - **The default's measurements appear in exactly two places**: the preset that declares them, and the test that pins them. A test asserting the default against the constant it came from proves nothing, so that one names the numbers.
 - **The domain model carries content, never layout.** No field names a position on the card, and no schema caps a length because a region looks small. Ordered lists let the theme decide how to set them out, and what actually fits is the fitting routine's call against live dimensions. A `maxLength` written for a layout reason is a card measurement in disguise, and it rejects a user's content for something the model is not entitled to know.
+- **Geometry reaches CSS as custom properties set inline from the layout**, never as a value in a stylesheet. The component sets `--card-width`, `--card-height`, the four margins and `--card-font-size` from the layout it is handed; the stylesheet reads those and works in ratios of them. A rule that wants a measurement has to ask for a property that exists, which is what keeps a card size out of the CSS.
+- **The card's type scale and spacing are ratios in the theme, not lengths.** `--card-scale-*` say how much larger a title is than the body; the renderer works out what that is in millimetres against the live font size. A length in the theme would be pinned to one card size.
+- **A ratio below 1 is clamped to the layout's minimum font size.** Legibility is a length, not a ratio: a ratio follows the body text down and would scale a label past the point it can be read. The floor lives with the geometry, and the renderer resolves the whole scale once so every region gets the clamp.
+- **The card gives up type size, never its box.** Fitting measures the rendered card and scales the text; the card's dimensions are what it is cut to and do not move. Content that will not fit at the bottom of the range is a second card, never a smaller card and never a cut word.
+- **Every colour a card sets text on meets WCAG AA**, and a test in `@ttrpg-cards/ui` holds the theme to it by reading the stylesheet. Contrast is computed from relative luminance, so passing it is also the grayscale check.
 - Structure work so additional card sizes can be added without touching the renderer.
 
 ### Storage
@@ -196,6 +205,7 @@ When a single conceptual entity has many associated computations or derivations 
 
 - **Use `@ttrpg-cards/ui` whenever a primitive exists** (Button, Card, Dialog, Select, Tabs, Toast, Input, …). Feature components compose these. Never reimplement a primitive in `apps/web` or a feature if the UI package already ships one.
 - **Add new primitives to `packages/ui/src/<PrimitiveName>/`, not to `apps/web`.** A "primitive" is anything feature-agnostic; if two features would share the same building block, lift it into the UI package with a story and tests.
+- **Never render a bare `div`, `p` or `span`.** Use `Box` from `@ttrpg-cards/ui/Box`: a `div` by default, `as="p"` or `as="span"` for the other two. The generic containers then come from one place, so a change to what a container is happens once. An element that carries meaning of its own, a heading, a list, a list item, an article, stays itself rather than hiding behind a generic name, which is why `Box` takes those three and no more.
 - Layout knobs go on the primitive's props, not on consumer CSS.
 - **Run Storybook (`pnpm storybook`) when adding or modifying a primitive** so the new variant is visually verifiable, and add a `.stories.tsx` alongside it.
 

@@ -23,6 +23,20 @@ import type {
 const LAYOUT_SUBJECT = "card layout";
 
 /**
+ * How close the fitting search gets before it stops halving, and the grid the
+ * answer is rounded down to. Both in millimetres, and the same number: there is
+ * no point searching finer than the precision the answer is given at.
+ */
+const FIT_PRECISION_MILLIMETRES = 0.01;
+
+/**
+ * The ceiling on halvings, so a predicate that misbehaves cannot spin. A
+ * generous range needs about nine to reach the precision above, and each one
+ * costs the caller a measurement.
+ */
+const FIT_MAXIMUM_STEPS = 20;
+
+/**
  * The geometry a card is laid out at, and the values derived from it.
  *
  * Immutable: a different size is a new layout derived with
@@ -231,6 +245,80 @@ export class CardLayout {
     return (
       this.heightMillimetres - topMillimetres - bottomMillimetres
     );
+  }
+
+  /**
+   * The largest size in this layout's range that `fits` accepts.
+   *
+   * The fitting routine, and deliberately not a rendering concern: it knows
+   * the range and nothing about what is being measured, so a caller decides
+   * what fitting means by answering one question about one candidate size.
+   *
+   * `fits` has to be monotonic, meaning a size that fits implies every smaller
+   * size fits. That holds for text in a fixed box, which is what this is for.
+   * The search halves the range rather than stepping through it, so a caller
+   * that measures the browser pays about nine measurements instead of one per
+   * step on the way down.
+   *
+   * Returns the minimum when nothing in the range fits. Below it the answer is
+   * a second card rather than smaller text, which is not this routine's call.
+   *
+   * @example
+   * ```ts
+   * const layout = CardLayout.default().with({
+   *   fontSizeRange: { minimumMillimetres: 2, maximumMillimetres: 4 },
+   * });
+   *
+   * layout.fittedFontSize({ fits: () => true }); // 4
+   * layout.fittedFontSize({ fits: () => false }); // 2
+   * layout.fittedFontSize({ fits: (size) => size <= 3 }); // 3
+   * ```
+   */
+  fittedFontSize(options: {
+    fits: (fontSizeMillimetres: number) => boolean;
+  }): number {
+    const { minimumMillimetres, maximumMillimetres } =
+      this.#settings.fontSizeRange;
+
+    if (options.fits(maximumMillimetres)) {
+      return maximumMillimetres;
+    }
+
+    let smallest = minimumMillimetres;
+    let largest = maximumMillimetres;
+    let best = minimumMillimetres;
+
+    for (let step = 0; step < FIT_MAXIMUM_STEPS; step += 1) {
+      if (largest - smallest <= FIT_PRECISION_MILLIMETRES) {
+        break;
+      }
+
+      const candidate = (smallest + largest) / 2;
+
+      if (options.fits(candidate)) {
+        best = candidate;
+        smallest = candidate;
+        continue;
+      }
+
+      largest = candidate;
+    }
+
+    return CardLayout.#roundedDownToPrecision(best);
+  }
+
+  /**
+   * A size on the precision grid, rounded down so the answer still fits. The
+   * search bisects, so without this it reports sizes to fifteen decimal places.
+   */
+  static #roundedDownToPrecision(value: number): number {
+    // 1.13 / 0.01 is 112.99999999999999 in binary floating point, and flooring
+    // that drops a whole step, so the quotient is settled before it is floored.
+    const steps = Math.floor(
+      Number((value / FIT_PRECISION_MILLIMETRES).toFixed(6)),
+    );
+
+    return Math.round(steps * FIT_PRECISION_MILLIMETRES * 100) / 100;
   }
 
   /**

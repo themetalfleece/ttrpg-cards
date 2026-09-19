@@ -1,0 +1,22 @@
+/*
+ * A hairline unless something says otherwise. The defaults are fallbacks at
+ * the point of use rather than declarations on the element: a custom property
+ * declared in a rule that matches the element beats the value inherited from
+ * an ancestor, so declaring them here would mean a surface that sets
+ * `--separator-thickness` on a wrapper could never win.
+ */
+.separator {
+  flex: none;
+  border: none;
+  background: var(--separator-color, var(--color-border));
+
+  &[data-orientation="horizontal"] {
+    width: 100%;
+    height: var(--separator-thickness, var(--border-width-hairline));
+  }
+
+  &[data-orientation="vertical"] {
+    width: var(--separator-thickness, var(--border-width-hairline));
+    height: 100%;
+  }
+}
