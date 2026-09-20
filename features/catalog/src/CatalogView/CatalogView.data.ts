@@ -24,9 +24,20 @@ export const CATALOG_CARDS: readonly Card[] =
 
 const ATTRIBUTION = SHOWN_CATALOG?.attribution;
 
-/** What the page owes a reader for the content it is showing. */
+/** What the page owes a reader for the bundled content. */
 export const CATALOG_ATTRIBUTIONS: readonly CatalogAttribution[] =
   ATTRIBUTION === undefined ? [] : [ATTRIBUTION];
+
+/**
+ * What a page of the reader's own cards owes: nothing.
+ *
+ * The obligation attaches to the material being shared, and with the bundled
+ * catalog off the page there is none of it to credit. It is a ceiling as well
+ * as a floor, and a credit standing under somebody's own homebrew reads as
+ * the licensor having had a hand in it, which is exactly what may not be
+ * implied.
+ */
+export const NO_ATTRIBUTIONS: readonly CatalogAttribution[] = [];
 
 /**
  * A registry's entries as the choices a control offers.

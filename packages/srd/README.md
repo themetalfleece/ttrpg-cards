@@ -71,10 +71,19 @@ and never reaches a browser.
 - The upgrade section and the material component become callouts, which is what the card model
   calls an aside.
 
-**Extracted files write emphasis as markup, and `markup.ts` is where that stops.** The model
+**Extracted files write emphasis as markup, and `runsFromMarkup` is where that stops.** The model
 stores emphasis as structure, so a `**strong**` or `_emphasis_` span is parsed into runs at the
-boundary and nothing downstream sees a marker. The extraction's own validator rejects an
-unbalanced or stray marker before a file is written, so the parser is handed well-formed input.
+boundary and nothing downstream sees a marker. That parser lives in
+[`@ttrpg-cards/importer`](../importer), because reading markup into runs is the same job whoever
+wrote the markup, and one implementation is what keeps a bundled entry and a document a reader
+brought reading the same text the same way. The extraction's own validator still rejects an
+unbalanced or stray marker before a file is written: the parser is forgiving and would leave a
+stray one as literal characters, so that check is what keeps a mistake in the pipeline visible.
+
+**The catalog is also what the Markdown parser is held to.** `roundTrip.test.ts` writes every
+bundled card out as Markdown, reads it back, and expects the card it started with. A few hundred
+entries of prose, lists, asides and tables is a harder test of a forgiving parser than any
+fixture written to suit it.
 
 **A printed table becomes a caption and a list, one item per row.** The card model has no table,
 and that is right for a surface this small: a grid sized for a page column does not survive being

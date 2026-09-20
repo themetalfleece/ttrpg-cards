@@ -1,0 +1,42 @@
+/* The label above the field, the way every other labelled control is set. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+}
+
+/*
+ * Monospaced, because what goes in here is a document with its own layout and
+ * a reader checking a line against the one above it needs the columns to line
+ * up. Resizable in one direction only: a field that can be dragged wider than
+ * the column it sits in pushes the controls beside it off the row.
+ */
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  border: var(--border-width-hairline) solid var(--color-border);
+  border-radius: var(--radius-medium);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-surface-raised);
+  color: var(--color-text);
+  font-family: ui-monospace, monospace;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-body);
+  resize: vertical;
+
+  &::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  &:focus-visible {
+    outline: var(--border-width-hairline) solid
+      var(--color-focus-ring);
+    outline-offset: var(--border-width-hairline);
+  }
+}

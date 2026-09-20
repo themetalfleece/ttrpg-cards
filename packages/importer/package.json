@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@ttrpg-cards/card": "workspace:*",
-    "@ttrpg-cards/validator": "workspace:*"
+    "@ttrpg-cards/text": "workspace:*"
   },
   "devDependencies": {
     "eslint": "catalog:",

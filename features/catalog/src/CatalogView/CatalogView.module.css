@@ -20,6 +20,15 @@
 }
 
 /*
+ * A row of its own below the controls, held to a column a document is
+ * comfortable to read in rather than to the width of the window.
+ */
+.import {
+  flex-basis: 100%;
+  max-width: 44rem;
+}
+
+/*
  * On paper there is nothing left to change, so the controls come off. The
  * credit takes itself off too, which leaves the sheet alone in here and the
  * gap above with nothing to space.

@@ -23,6 +23,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TEXT_SIZE_LABEL } from "./CardControls/CardControls.constants";
 import {
+  CLEAR_LABEL,
+  IMPORT_LABEL,
+  NOTHING_READ,
+  unreadLine,
+} from "./ImportPanel/ImportPanel.constants";
+import {
   CALIBRATION_HINT,
   CALIBRATION_LABEL,
 } from "./ScreenCalibration/ScreenCalibration.constants";
@@ -37,6 +43,39 @@ import {
 (
   globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
+
+/** Two cards a reader might bring, written the way most documents are. */
+const BROUGHT_CARDS = [
+  "## Hearth Token",
+  "",
+  "*A trinket of banked warmth*",
+  "",
+  "**Range:** Touch",
+  "**Duration:** 8 hours",
+  "",
+  "It keeps a fire lit overnight, however the wind sits.",
+  "",
+  "---",
+  "",
+  "## Lantern Ward",
+  "",
+  "- **Range:** Self",
+  "- **Duration:** 1 minute",
+  "",
+  "A ward of steady light closes over you.",
+  "",
+].join("\n");
+
+/** A third card, for a reader who adds one document after another. */
+const LATER_CARD = [
+  "## Candle Stub",
+  "",
+  "**Range:** Touch",
+  "**Duration:** 1 hour",
+  "",
+  "It burns down to nothing by morning.",
+  "",
+].join("\n");
 
 /** Whatever a test replaced or mounted, undone after it. */
 const restores: Array<() => void> = [];
@@ -164,6 +203,52 @@ async function pickFrom(
 
   await act(async () => {
     choice.click();
+  });
+}
+
+/** Types a document into the field the way a reader pasting one would. */
+async function paste(
+  container: HTMLElement,
+  source: string,
+): Promise<void> {
+  const field = container.querySelector("textarea");
+
+  if (field === null) {
+    throw new Error("The view rendered no field to paste into");
+  }
+
+  // React listens for an input event on a controlled field, and jsdom's own
+  // value setter does not raise one, so the native setter goes in underneath.
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLTextAreaElement.prototype,
+    "value",
+  )?.set;
+
+  setter?.call(field, source);
+
+  await act(async () => {
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+/** Opens a file the way the reader's own picker reports one. */
+async function upload(
+  container: HTMLElement,
+  file: File,
+): Promise<void> {
+  const input = container.querySelector('input[type="file"]');
+
+  if (input === null) {
+    throw new Error("The view rendered no way to open a file");
+  }
+
+  Object.defineProperty(input, "files", {
+    configurable: true,
+    value: [file],
+  });
+
+  await act(async () => {
+    input.dispatchEvent(new Event("change", { bubbles: true }));
   });
 }
 
@@ -550,5 +635,140 @@ describe("CatalogView", () => {
     for (const attribution of CATALOG_ATTRIBUTIONS) {
       expect(container.textContent).toContain(attribution.statement);
     }
+  });
+
+  describe("cards the reader brings", () => {
+    it("lays a pasted document out on the same sheet", async () => {
+      const container = await renderView();
+
+      await paste(container, BROUGHT_CARDS);
+      await press(container, IMPORT_LABEL);
+
+      const faces = cardFaces(container);
+
+      expect(faces).toHaveLength(2);
+      expect(container.textContent).toContain("Hearth Token");
+      expect(container.textContent).toContain("Lantern Ward");
+    });
+
+    it("draws them with the controls the bundled ones are drawn with", async () => {
+      const container = await renderView();
+      const chosen = CARD_THEMES[1];
+
+      await paste(container, BROUGHT_CARDS);
+      await press(container, IMPORT_LABEL);
+      await pick(container, chosen.name);
+
+      const themes = cardFaces(container).map(
+        (face) => face.dataset["cardTheme"],
+      );
+
+      expect(themes).toEqual([chosen.id, chosen.id]);
+    });
+
+    it("reads a document opened off the reader's own machine", async () => {
+      const container = await renderView();
+
+      await upload(
+        container,
+        new File([BROUGHT_CARDS], "cards.md", {
+          type: "text/markdown",
+        }),
+      );
+
+      expect(cardFaces(container)).toHaveLength(2);
+    });
+
+    // A reader who pasted forty cards and got thirty-nine has no other way to
+    // find the one that went missing.
+    it("lists what did not read as a card, with the line it starts at", async () => {
+      const container = await renderView();
+
+      await paste(container, `Some loose notes.\n\n${BROUGHT_CARDS}`);
+      await press(container, IMPORT_LABEL);
+
+      expect(cardFaces(container)).toHaveLength(2);
+      expect(container.textContent).toContain(unreadLine(1));
+    });
+
+    it("says so when a document held no cards at all", async () => {
+      const container = await renderView();
+
+      await paste(
+        container,
+        "Just some prose, and no heading over it.",
+      );
+      await press(container, IMPORT_LABEL);
+
+      expect(container.textContent).toContain(NOTHING_READ);
+    });
+
+    // A reader builds a set up a few cards at a time, so a second document
+    // joins the first rather than replacing it.
+    it("keeps the cards already on the page when another document is added", async () => {
+      const container = await renderView();
+
+      await paste(container, BROUGHT_CARDS);
+      await press(container, IMPORT_LABEL);
+      await paste(container, LATER_CARD);
+      await press(container, IMPORT_LABEL);
+
+      expect(cardFaces(container)).toHaveLength(3);
+      expect(container.textContent).toContain("Hearth Token");
+      expect(container.textContent).toContain("Lantern Ward");
+      expect(container.textContent).toContain("Candle Stub");
+    });
+
+    // Two documents are entitled to name a card the same thing, and the page
+    // has to be able to tell the two apart.
+    it("keeps both when a later document repeats a name", async () => {
+      const container = await renderView();
+
+      await paste(container, LATER_CARD);
+      await press(container, IMPORT_LABEL);
+      await paste(container, LATER_CARD);
+      await press(container, IMPORT_LABEL);
+
+      expect(cardFaces(container)).toHaveLength(2);
+    });
+
+    // Left where it was, the next press of the button would add the same
+    // cards a second time.
+    it("empties the field once it has taken what was in it", async () => {
+      const container = await renderView();
+
+      await paste(container, LATER_CARD);
+      await press(container, IMPORT_LABEL);
+
+      expect(container.querySelector("textarea")?.value).toBe("");
+    });
+
+    // The credit is owed for the bundled material, and that is not what is on
+    // the page any more. Leaving it under somebody's own homebrew would read
+    // as the licensor having had a hand in it.
+    it("takes the bundled credit off the page, and puts it back", async () => {
+      const container = await renderView();
+      const statement = CATALOG_ATTRIBUTIONS[0]?.statement ?? "";
+
+      await paste(container, BROUGHT_CARDS);
+      await press(container, IMPORT_LABEL);
+
+      expect(container.textContent).not.toContain(statement);
+
+      await press(container, CLEAR_LABEL);
+
+      expect(container.textContent).toContain(statement);
+      expect(cardFaces(container)).toHaveLength(capacityAt({}));
+    });
+
+    it("keeps nothing from a document once it is cleared", async () => {
+      const container = await renderView();
+
+      await paste(container, `Some loose notes.\n\n${BROUGHT_CARDS}`);
+      await press(container, IMPORT_LABEL);
+      await press(container, CLEAR_LABEL);
+
+      expect(container.textContent).not.toContain(unreadLine(1));
+    });
   });
 });

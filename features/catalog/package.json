@@ -19,6 +19,7 @@
   "dependencies": {
     "@ttrpg-cards/card": "workspace:*",
     "@ttrpg-cards/core": "workspace:*",
+    "@ttrpg-cards/importer": "workspace:*",
     "@ttrpg-cards/printer": "workspace:*",
     "@ttrpg-cards/srd": "workspace:*",
     "@ttrpg-cards/ui": "workspace:*",

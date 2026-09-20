@@ -5,6 +5,7 @@ import {
   type CardMetaField,
   type CardSource,
 } from "@ttrpg-cards/card";
+import { runsFromMarkup } from "@ttrpg-cards/importer";
 import {
   RichText,
   TEXT_MARKS,
@@ -42,7 +43,6 @@ import type {
   EntryComponents,
   EntryTable,
 } from "./catalog.types";
-import { runsFromMarkup } from "./markup";
 
 /** A casting time and the condition it waits on, when it names one. */
 interface CastingTime {

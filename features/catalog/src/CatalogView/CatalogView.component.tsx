@@ -9,19 +9,21 @@ import type { CSSProperties } from "react";
 import { AttributionNotice } from "./AttributionNotice/AttributionNotice.component";
 import { CardControls } from "./CardControls/CardControls.component";
 import { CardPage } from "./CardPage/CardPage.component";
+import { ImportPanel } from "./ImportPanel/ImportPanel.component";
 import { PageControls } from "./PageControls/PageControls.component";
 import { ScreenCalibration } from "./ScreenCalibration/ScreenCalibration.component";
-import {
-  CATALOG_ATTRIBUTIONS,
-  screenScaleStyle,
-} from "./CatalogView.data";
+import { screenScaleStyle } from "./CatalogView.data";
 import { useCatalogSelection } from "./CatalogView.hooks";
 import styles from "./CatalogView.module.css";
 import type { CatalogViewProps } from "./CatalogView.types";
 
 /**
- * The bundled catalog laid out on a sheet, with everything about that sheet a
- * reader can change.
+ * Cards laid out on a sheet, with everything about that sheet a reader can
+ * change.
+ *
+ * The bundled catalog until the reader brings a document of their own, and
+ * theirs after that. Their cards go onto the same sheet, drawn by the same
+ * renderer at the same settings, because a card they wrote is a card.
  *
  * Picking a colour repaints the cards, picking a card size reflows the sheet,
  * and picking a paper or a way round changes how much of it there is to fill.
@@ -62,6 +64,12 @@ export function CatalogView({ className }: CatalogViewProps) {
           scale={selection.screenScale}
           onScaleChange={selection.chooseScreenScale}
         />
+        <ImportPanel
+          className={styles.import}
+          onImport={selection.importMarkdown}
+          onClear={selection.clearImport}
+          summary={selection.importSummary}
+        />
       </Box>
       <CardPage
         cards={selection.cards}
@@ -69,7 +77,7 @@ export function CatalogView({ className }: CatalogViewProps) {
         sheet={selection.sheet}
         theme={selection.theme}
       />
-      <AttributionNotice attributions={CATALOG_ATTRIBUTIONS} />
+      <AttributionNotice attributions={selection.attributions} />
     </Box>
   );
 }

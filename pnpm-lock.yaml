@@ -345,6 +345,9 @@ importers:
       '@ttrpg-cards/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@ttrpg-cards/importer':
+        specifier: workspace:*
+        version: link:../../packages/importer
       '@ttrpg-cards/printer':
         specifier: workspace:*
         version: link:../../packages/printer
@@ -438,9 +441,9 @@ importers:
       '@ttrpg-cards/card':
         specifier: workspace:*
         version: link:../card
-      '@ttrpg-cards/validator':
+      '@ttrpg-cards/text':
         specifier: workspace:*
-        version: link:../validator
+        version: link:../text
     devDependencies:
       eslint:
         specifier: 'catalog:'
@@ -482,6 +485,9 @@ importers:
       '@ttrpg-cards/card':
         specifier: workspace:*
         version: link:../card
+      '@ttrpg-cards/importer':
+        specifier: workspace:*
+        version: link:../importer
       '@ttrpg-cards/text':
         specifier: workspace:*
         version: link:../text

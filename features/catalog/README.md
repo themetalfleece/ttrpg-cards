@@ -1,6 +1,7 @@
 # `@ttrpg-cards/feature-catalog`
 
-The bundled catalog laid out on a page, with live card and page controls.
+Cards laid out on a page, with live card and page controls. The bundled catalog until the reader
+brings a document of their own, and theirs after that.
 
 This is what `apps/web` renders. The route file resolves nothing and decides nothing: it
 renders `CatalogView` and stops, so everything here is testable without the framework.
@@ -128,6 +129,41 @@ cards come off the sheet, but not what any one of them says, so nothing re-measu
 
 Nothing is stored. What a reader picked is theirs to pick again.
 
+## Cards the reader brings
+
+`ImportPanel` is where a reader pastes a document or opens one off their disk.
+[`@ttrpg-cards/importer`](../../packages/importer) reads it, and what comes out goes onto the
+**same sheet**, through the same renderer, at whatever the reader has the controls set to. A card
+they wrote is a card, and there is nothing about one to draw differently. There is no second
+renderer here and there is not going to be.
+
+**The document is read where it was handed over.** It is not uploaded, nothing about it is sent
+anywhere, and the panel offers no way for that to change. Reading a chosen file happens in the
+browser through `File.text`, which is the whole of it.
+
+**Each document adds to the cards already on the page.** A reader builds a set up a few at a time,
+so a second paste joins the first rather than replacing it, and the identifiers already spoken for
+go into the parser with it: two documents are entitled to name a card the same thing and the page
+has to tell them apart. The field empties once its contents have been taken, because left where it
+was the next press of the button would add the same cards again. **Clear and show the bundled
+cards** takes the whole set off.
+
+A file that cannot be read says so: a reader whose disk or permissions refused them has no other
+way to tell that apart from a document that held no cards. The count of what the last document
+added is kept alongside the total, because a reader who already has cards on the page needs to be
+told when the one they just added brought none.
+
+**What did not read as a card is listed with the line it starts at.** A reader who pasted forty
+cards and got thirty-nine has no other way to find the one that went missing.
+
+The parsing happens in `useCatalogSelection` rather than in the panel, so the panel stays a
+surface and the cards it produced live with everything else the page is drawn from. The card list
+keeps one identity per set for the same reason the layout keeps one per size: a fresh array
+re-measures every card on the sheet. The cards themselves keep theirs across an addition, so only
+the new ones are measured.
+
+Nothing is stored. The set is in memory for as long as the tab is open.
+
 ## Attribution
 
 `AttributionNotice` carries all of what CC BY 4.0 asks for the bundled content: the statement
@@ -139,6 +175,12 @@ first render, which is where the app shares the material and so where the obliga
 
 It is a ceiling as well as a floor: nothing here credits the licensor beyond the statement or
 suggests they endorse this.
+
+**It comes off the page when the bundled cards do.** The obligation attaches to the material
+being shared, and a page showing only cards the reader wrote is sharing none of it. The ceiling
+says the same thing from the other side: a credit standing under somebody's own homebrew reads as
+the licensor having had a hand in it, which is exactly what may not be implied. It comes back the
+moment the bundled cards do.
 
 ## Printing
 
@@ -182,5 +224,5 @@ is the right size are the print pipeline's, not this slice's.
 ## Layout
 
 `CatalogView` is the only thing this package exports. Everything else is an inner component of
-it and stays that way: `CardPage`, `CardControls`, `PageControls` and `AttributionNotice` have
-no barrel, so none of them is a resolvable import from outside.
+it and stays that way: `CardPage`, `CardControls`, `PageControls`, `ImportPanel` and
+`AttributionNotice` have no barrel, so none of them is a resolvable import from outside.

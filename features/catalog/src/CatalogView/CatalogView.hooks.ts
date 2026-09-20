@@ -15,10 +15,18 @@ import {
   type PageSizeName,
 } from "@ttrpg-cards/printer";
 import { SCREEN_SCALE_RANGE, clampToRange } from "@ttrpg-cards/core";
+import { MarkdownDocument } from "@ttrpg-cards/importer";
 import { useCallback, useMemo, useState } from "react";
 
-import { CATALOG_CARDS } from "./CatalogView.data";
-import type { CatalogSelection } from "./CatalogView.types";
+import {
+  CATALOG_ATTRIBUTIONS,
+  CATALOG_CARDS,
+  NO_ATTRIBUTIONS,
+} from "./CatalogView.data";
+import type {
+  BroughtCards,
+  CatalogSelection,
+} from "./CatalogView.types";
 
 /**
  * What the reader has picked, and what the page is drawn from because of it.
@@ -36,10 +44,15 @@ import type { CatalogSelection } from "./CatalogView.types";
  * goes changes how many cards come off the sheet, but not what any one of them
  * says, so the card layout keeps its identity and nothing re-measures.
  *
- * The cards are the whole catalog, in order. Which of them fit is the sheet's
- * own question, because it is the only thing that knows what each one cost.
+ * The cards are everything the page could lay out, in order. Which of them fit
+ * is the sheet's own question, because it is the only thing that knows what
+ * each one cost. They are the reader's own once they bring a document, and the
+ * bundled ones until then: their cards are cards, and there is nothing about
+ * one to draw differently.
  *
- * Nothing is persisted. What a reader picked is theirs to pick again.
+ * Nothing is persisted, and nothing is transmitted. What a reader picked is
+ * theirs to pick again, and the document they brought is read where they
+ * handed it over.
  */
 export function useCatalogSelection(): CatalogSelection {
   const [theme, setTheme] = useState<CardThemeId>(
@@ -58,6 +71,39 @@ export function useCatalogSelection(): CatalogSelection {
   const [screenScale, setScreenScale] = useState(
     SCREEN_SCALE_RANGE.initial,
   );
+  const [brought, setBrought] = useState<BroughtCards | undefined>(
+    undefined,
+  );
+
+  // Parsed here rather than in the panel, so the panel stays a surface and
+  // the cards it produced live with everything else the page is drawn from.
+  //
+  // Each document adds to what is already on the page rather than replacing
+  // it, so a reader can build a set up a few cards at a time. The identifiers
+  // already spoken for go in with it, which is what lets two documents that
+  // name a card the same thing both keep theirs.
+  //
+  // Through the updater rather than off `brought`, because a file is read
+  // asynchronously and the handler that started it would otherwise add to
+  // whatever was there when the reader picked it.
+  const importMarkdown = useCallback((source: string) => {
+    setBrought((current) => {
+      const kept = current?.cards ?? [];
+      const document = new MarkdownDocument({
+        source,
+        reservedIdentifiers: kept.map((card) => card.id),
+      });
+
+      return {
+        cards: [...kept, ...document.cards],
+        addedCount: document.cards.length,
+        issues: document.issues,
+      };
+    });
+  }, []);
+  const clearImport = useCallback(() => {
+    setBrought(undefined);
+  }, []);
 
   // The scale reaches CSS and is dragged by a control, so it is held to its
   // range here rather than trusted at either end.
@@ -74,6 +120,30 @@ export function useCatalogSelection(): CatalogSelection {
     () => new SheetLayout({ settings: { size: paper, orientation } }),
     [paper, orientation],
   );
+  // One identity per set of cards, for the same reason the layout has one per
+  // size: a fresh array would re-measure every card on the sheet. The cards
+  // themselves keep their identity across an addition, so only the new ones
+  // are measured.
+  const cards = useMemo(() => {
+    const kept = brought?.cards ?? [];
+
+    return kept.length > 0 ? kept : CATALOG_CARDS;
+  }, [brought]);
+  // The credit is owed for the bundled content, so it follows exactly what is
+  // laid out rather than a second condition that could come to disagree.
+  const showsBundledCards = cards === CATALOG_CARDS;
+  const importSummary = useMemo(() => {
+    if (brought === undefined) {
+      return undefined;
+    }
+
+    return {
+      totalCount: brought.cards.length,
+      addedCount: brought.addedCount,
+      issues: brought.issues,
+    };
+  }, [brought]);
+
   return {
     theme,
     size,
@@ -82,7 +152,11 @@ export function useCatalogSelection(): CatalogSelection {
     paper,
     orientation,
     sheet,
-    cards: CATALOG_CARDS,
+    cards,
+    attributions: showsBundledCards
+      ? CATALOG_ATTRIBUTIONS
+      : NO_ATTRIBUTIONS,
+    importSummary,
     screenScale,
     chooseTheme: setTheme,
     chooseSize: setSize,
@@ -90,5 +164,7 @@ export function useCatalogSelection(): CatalogSelection {
     choosePaper: setPaper,
     chooseOrientation: setOrientation,
     chooseScreenScale,
+    importMarkdown,
+    clearImport,
   };
 }

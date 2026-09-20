@@ -29,4 +29,3 @@ export type {
   EntryTable,
   EntryUpgrade,
 } from "./catalog.types";
-export { runsFromMarkup } from "./markup";

@@ -69,8 +69,8 @@ function textsOf(entry: CatalogEntry): [string, string][] {
 /**
  * What is wrong with a piece of inline markup, or undefined when it is sound.
  *
- * The parser in `src/catalog/markup.ts` relies on this: it is handed only text whose markers are
- * balanced and correctly placed, so it never has to decide what a stray one meant.
+ * The markup parser in `@ttrpg-cards/importer` is forgiving and leaves a stray marker literal,
+ * so this is what keeps a mistake in the extraction visible instead of shipping it as text.
  */
 function markupProblem(text: string): string | undefined {
   if (text.includes("System Reference Document"))

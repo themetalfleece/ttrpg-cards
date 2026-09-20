@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@ttrpg-cards/card": "workspace:*",
+    "@ttrpg-cards/importer": "workspace:*",
     "@ttrpg-cards/text": "workspace:*",
     "@ttrpg-cards/validator": "workspace:*"
   },

@@ -1,0 +1,8 @@
+/*
+ * Out of the layout and out of the accessibility tree: the button in front of
+ * it is what a reader sees, focuses and presses, and the input exists only
+ * because it is the one thing that can open the picker.
+ */
+.input {
+  display: none;
+}

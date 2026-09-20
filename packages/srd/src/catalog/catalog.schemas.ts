@@ -8,10 +8,11 @@ import { ENTRY_BLOCK_TYPES } from "./catalog.constants";
  * plain characters.
  *
  * This is the one place in the workspace where markup lives in a string, and
- * it is deliberate. The extracted files are an import format, not the model:
- * `markup.ts` turns them into runs at the boundary and nothing downstream ever
- * sees a marker. The extraction's own validator rejects an unbalanced or stray
- * marker before a file is written, so the parser is handed well-formed input.
+ * it is deliberate. The extracted files are an import format, not the model,
+ * so `runsFromMarkup` from `@ttrpg-cards/importer` turns them into runs at the
+ * boundary and nothing downstream ever sees a marker. The extraction's own
+ * validator rejects an unbalanced or stray marker before a file is written, so
+ * the parser is handed well-formed input.
  */
 export const EntryMarkupSchema = PlainTextSchema;
 

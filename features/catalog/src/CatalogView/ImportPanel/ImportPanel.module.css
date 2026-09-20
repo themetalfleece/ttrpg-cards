@@ -1,0 +1,69 @@
+/* A column: the field, the actions under it, then whatever the read had to say. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  text-align: left;
+}
+
+.title {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+}
+
+/* The actions sit in a row and wrap onto the next line on a narrow window. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.summary {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}
+
+/* Loud enough to be read before the reader tries again, and no louder. */
+.problem {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+}
+
+.unread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border-left: var(--border-width-hairline) solid
+    var(--color-border-strong);
+  padding-left: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+
+  & p {
+    margin: 0;
+  }
+}
+
+.issues {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The line number leads, because it is what the reader goes looking with. */
+.line {
+  margin-right: var(--space-2);
+  color: var(--color-text);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
