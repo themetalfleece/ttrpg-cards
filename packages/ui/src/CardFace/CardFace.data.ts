@@ -1,12 +1,9 @@
+import { millimetres } from "@ttrpg-cards/core";
+
 import type {
   CardFaceStyle,
   CardFaceStyleOptions,
 } from "./CardFace.types";
-
-/** A measurement as CSS, in the physical units the layout keeps it in. */
-function millimetres(value: number): string {
-  return `${value}mm`;
-}
 
 /**
  * The custom properties a card face is drawn from.

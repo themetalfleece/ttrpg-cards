@@ -22,21 +22,25 @@ import type { CardSetViewProps } from "./CardSetView.types";
  * because the floor was not enough, so the first card is at the floor by
  * definition, and letting a shorter continuation grow would set one entry in
  * two sizes.
+ *
+ * Handed a `set`, it draws that one and measures nothing, which is what a
+ * caller that has already worked the split out wants.
  */
 export function CardSetView({
   card,
   layout,
   theme,
+  set,
   className,
 }: CardSetViewProps) {
-  const set = useCardSet({ card, layout });
-  const fontSizeMillimetres = set.isSplit
+  const cardSet = useCardSet({ card, layout, set });
+  const fontSizeMillimetres = cardSet.isSplit
     ? layout.fontSizeRange.minimumMillimetres
     : undefined;
 
   return (
     <Box className={clsx(styles.set, className)}>
-      {set.faces.map((face) => (
+      {cardSet.faces.map((face) => (
         <CardFace
           key={face.card.id}
           card={face.card}

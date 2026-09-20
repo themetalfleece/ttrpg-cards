@@ -15,6 +15,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@ttrpg-cards/core": "workspace:*",
     "@ttrpg-cards/text": "workspace:*",
     "@ttrpg-cards/validator": "workspace:*"
   },

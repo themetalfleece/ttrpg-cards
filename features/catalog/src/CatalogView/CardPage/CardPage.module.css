@@ -1,0 +1,108 @@
+/*
+ * A sheet of paper, at the size a sheet is. Cards fill it in reading order and
+ * wrap at the edge of the margin, so the number on it follows the size they
+ * are cut to rather than the width of the window.
+ *
+ * Every length is a custom property the component sets from the page geometry.
+ * A rule that wants a measurement has to ask for a property that exists, which
+ * is what keeps a measurement out of this file.
+ */
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: var(--page-card-gap);
+  width: var(--page-width);
+  min-height: var(--page-height);
+  /*
+   * The grid sits in the middle of what the margins leave, and the inset on
+   * the left is what does it rather than centring the rows. A wrapping flex
+   * container centres each line on its own, so the moment a last row is short
+   * its cards stop lining up with the columns above, which is the one thing a
+   * sheet about to be cut must not do. Every row starts on the same column
+   * this way.
+   *
+   * Only the left carries the inset, and the right keeps the plain margin.
+   * The grid still ends up centred, because the blank it leaves is the inset
+   * on both sides, and the row keeps that inset as slack. A row asked to be
+   * exactly as wide as its cards drops its last column on a sub-pixel
+   * rounding, and 63mm three times is exactly that kind of arithmetic.
+   */
+  padding: var(--page-margin) var(--page-margin) var(--page-margin)
+    calc(var(--page-margin) + var(--page-grid-inset));
+  /*
+   * Drawn as an outline rather than a border, because an outline takes no
+   * room. The sheet's width is the paper and its padding is the margin, so
+   * every pixel a decoration spends comes out of the grid: a 1px border each
+   * side is enough to push a 193mm grid out of 194mm of content and drop a
+   * whole column.
+   */
+  outline: var(--border-width-hairline) solid var(--color-border);
+  background-color: var(--color-surface-raised);
+  box-shadow: var(--shadow-raised);
+}
+
+/*
+ * The sheet drawn at the size the reader's display actually is.
+ *
+ * A CSS millimetre is not a millimetre: an inch is fixed at 96 pixels, so the
+ * sheet is only life sized on a 96 pixel per inch display. `--screen-scale` is
+ * the correction the reader calibrated, and `zoom` is what applies it rather
+ * than a transform, because the credit sits below the sheet and a transform
+ * would scale it visually without reserving the room.
+ *
+ * Screens only. On paper the millimetres are already physical, so correcting
+ * them there would be the one thing that makes the print wrong.
+ */
+@media screen {
+  .page {
+    zoom: var(--screen-scale, 1);
+  }
+}
+
+/* Reads as a note on an empty sheet rather than as something to be cut out. */
+.empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}
+
+/*
+ * An entry is one item on the page however many cards it takes, so it lays out
+ * against the page's own gap rather than the one a set keeps between its cards
+ * on a surface that has not said. Written as a descendant so it beats the
+ * set's own rule wherever the two stylesheets end up in the bundle.
+ */
+.page > .cardSet {
+  gap: var(--page-card-gap);
+  break-inside: avoid;
+}
+
+/*
+ * On paper the page box is the paper, at the size and the margin the reader
+ * picked, because the component sets `@page` from the same sheet these
+ * properties come from. So the surface drops the width and the padding it used
+ * to stand in for them with, along with everything that made it look like paper
+ * on a screen, and fills what the page box leaves. The cards keep their
+ * millimetres, which is the whole point of laying them out in them.
+ */
+@media print {
+  .page {
+    width: auto;
+    min-height: 0;
+    /* The page box already supplies the margin, so only the inset is left,
+       and it stays on the left for the reason above. */
+    padding: 0 0 0 var(--page-grid-inset);
+    outline: none;
+    box-shadow: none;
+    /* Paper, not the reader's surface colour. The sheet paints it rather than
+       going transparent, because what shows through otherwise is the app's own
+       background and the sheet comes out tinted. `print-color-adjust` is what
+       makes the browser honour it: background colours are dropped by default
+       unless the reader finds the background graphics option. */
+    background-color: var(--color-paper);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

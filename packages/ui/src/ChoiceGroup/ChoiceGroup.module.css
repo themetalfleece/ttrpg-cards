@@ -1,0 +1,55 @@
+/*
+ * A segmented control: the choices sit together in one sunken track, and the
+ * picked one is lifted out of it.
+ */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+}
+
+/*
+ * The track is held to the shared control height so it lines up with a slider
+ * or a button standing next to it, and the choices are centred in it rather
+ * than stretched, so the height is the track's and not each option's.
+ */
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: var(--control-height);
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: var(--border-width-hairline) solid var(--color-border);
+  border-radius: var(--radius-medium);
+  background-color: var(--color-surface-sunken);
+}
+
+.option {
+  border: none;
+  border-radius: var(--radius-small);
+  padding: var(--space-1) var(--space-3);
+  background-color: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-tight);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--color-text);
+  }
+
+  &[data-state="checked"] {
+    background-color: var(--color-accent);
+    color: var(--color-accent-contrast);
+    box-shadow: var(--shadow-raised);
+  }
+}

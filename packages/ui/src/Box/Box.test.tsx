@@ -31,6 +31,12 @@ describe("Box", () => {
     );
   });
 
+  it("carries an id, so something else can point at it", () => {
+    expect(markupFor({ id: "sizeLabel" })).toContain(
+      'id="sizeLabel"',
+    );
+  });
+
   it("carries custom properties through, which is what a surface sets on its root", () => {
     const style = { "--card-width": "70mm" } as BoxProps["style"];
 

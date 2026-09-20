@@ -1,0 +1,50 @@
+/*
+ * Set small and quiet, but never truncated on screen: the statement is a
+ * licence condition, so it wraps rather than clipping.
+ */
+.notice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-body);
+}
+
+.entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+
+  & p {
+    margin: 0;
+  }
+}
+
+.statement {
+  color: var(--color-text);
+}
+
+.links {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.divider {
+  color: var(--color-border-strong);
+}
+
+/*
+ * A printed sheet is cards and nothing else, so the credit comes off it.
+ *
+ * The obligation attaches to where the material is shared, which is the app,
+ * and the notice above is in full there. What a reader prints is their own
+ * copy, and a sheet of cards to be cut up has nowhere to carry a paragraph
+ * anyway. If printed sheets ever need to stand on their own, the answer is a
+ * short per-sheet credit alongside the cut guides, not this block.
+ */
+@media print {
+  .notice {
+    display: none;
+  }
+}

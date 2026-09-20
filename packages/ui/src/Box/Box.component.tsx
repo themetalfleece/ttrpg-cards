@@ -15,6 +15,7 @@ const DEFAULT_BOX_ELEMENT = "div";
 export function Box({
   as = DEFAULT_BOX_ELEMENT,
   className,
+  id,
   style,
   children,
 }: BoxProps) {
@@ -22,7 +23,7 @@ export function Box({
   const Element: ElementType = as;
 
   return (
-    <Element className={className} style={style}>
+    <Element className={className} id={id} style={style}>
       {children}
     </Element>
   );

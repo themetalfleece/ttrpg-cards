@@ -1,3 +1,4 @@
+import { millimetres } from "@ttrpg-cards/core";
 import { useEffect, useState } from "react";
 
 import {
@@ -14,6 +15,30 @@ function pixels(value: string): number {
 }
 
 /**
+ * How much an ancestor is drawing this card larger or smaller than it is laid
+ * out, which is 1 when nothing is.
+ *
+ * A `zoom` or a `transform` above the card scales what
+ * `getBoundingClientRect` reports but leaves the computed lengths alone, so
+ * mixing the two below would subtract an unscaled padding from a scaled edge
+ * and hand the card room it does not have. `offsetHeight` stays in laid out
+ * pixels under both, which is what makes it the honest denominator.
+ *
+ * Falls back to 1 where there is nothing to divide, which is what a layout
+ * engine that reports no offset height gives.
+ */
+function renderedScale(frame: HTMLElement): number {
+  const { height } = frame.getBoundingClientRect();
+  const laidOut = frame.offsetHeight;
+
+  if (laidOut <= 0 || height <= 0) {
+    return 1;
+  }
+
+  return height / laidOut;
+}
+
+/**
  * Whether everything the card holds sits inside it.
  *
  * Measured as rectangles rather than by reading `scrollHeight`. The card is
@@ -27,22 +52,30 @@ function pixels(value: string): number {
  * Every child is measured rather than the last one. Their order is the flex
  * container's business, and taking the lowest costs nothing at six children.
  *
+ * The whole comparison happens in drawn pixels, so the computed lengths and
+ * the tolerance are scaled to meet the rectangles rather than the other way
+ * round. That is what lets a consumer draw the card at another size without
+ * quietly changing what fits on it.
+ *
  * Exported because splitting a card asks the same question of a candidate
  * card as fitting asks of this one, and one answer to it is enough.
  */
 export function contentFitsInside(frame: HTMLElement): boolean {
   const style = getComputedStyle(frame);
+  const scale = renderedScale(frame);
   const innerBottom =
     frame.getBoundingClientRect().bottom -
-    pixels(style.borderBottomWidth) -
-    pixels(style.paddingBottom);
+    scale *
+      (pixels(style.borderBottomWidth) + pixels(style.paddingBottom));
 
   const bottoms = Array.from(
     frame.children,
     (child) => child.getBoundingClientRect().bottom,
   );
 
-  return Math.max(...bottoms) <= innerBottom + FIT_TOLERANCE_PIXELS;
+  return (
+    Math.max(...bottoms) <= innerBottom + scale * FIT_TOLERANCE_PIXELS
+  );
 }
 
 /**
@@ -93,7 +126,7 @@ export function useFittedFontSize({
         fits: (candidateMillimetres) => {
           frame.style.setProperty(
             CARD_FONT_SIZE_PROPERTY,
-            `${candidateMillimetres}mm`,
+            millimetres(candidateMillimetres),
           );
 
           return contentFitsInside(frame);
@@ -102,7 +135,10 @@ export function useFittedFontSize({
 
       // Left set rather than cleaned up, so the card never paints a frame at
       // the size the last measurement happened to try.
-      frame.style.setProperty(CARD_FONT_SIZE_PROPERTY, `${fitted}mm`);
+      frame.style.setProperty(
+        CARD_FONT_SIZE_PROPERTY,
+        millimetres(fitted),
+      );
       setMeasuredMillimetres(fitted);
     };
 

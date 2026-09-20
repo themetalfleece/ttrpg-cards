@@ -17,3 +17,11 @@ body {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
 }
+
+/* On paper the document is paper. The surface colour is for a screen, and
+   printing it tints every sheet that comes out. */
+@media print {
+  body {
+    background-color: var(--color-paper);
+  }
+}

@@ -1,4 +1,9 @@
-import { type Card, CardLayout, CardModel } from "@ttrpg-cards/card";
+import {
+  type Card,
+  CardLayout,
+  CardModel,
+  CardSet,
+} from "@ttrpg-cards/card";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
@@ -113,6 +118,7 @@ function stubResizeObserver(): void {
 async function renderSet(options: {
   card: Card;
   layout?: CardLayout;
+  set?: CardSet;
 }): Promise<{ cards: HTMLElement[]; unmount: () => void }> {
   const container = document.createElement("div");
   document.body.append(container);
@@ -124,6 +130,7 @@ async function renderSet(options: {
       <CardSetView
         card={options.card}
         layout={options.layout ?? layout}
+        set={options.set}
       />,
     );
   });
@@ -158,7 +165,17 @@ function ends(card: Card): [string, string] {
   return [sentences[0] ?? "", sentences.at(-1) ?? ""];
 }
 
-const layout = CardLayout.default();
+/**
+ * The layout the fixtures here are written against.
+ *
+ * The type band is pinned rather than taken from the shipping text size,
+ * because these tests are about where a card splits and the fixtures are
+ * written to overrun one by a known amount. How large the app sets type is a
+ * reader's setting, and moving it should not read here as a split that broke.
+ */
+const layout = CardLayout.default().with({
+  fontSizeRange: { minimumMillimetres: 1.9, maximumMillimetres: 3.5 },
+});
 
 afterEach(() => {
   while (restores.length > 0) {
@@ -256,6 +273,26 @@ describe("CardSetView", () => {
 
     split.unmount();
     whole.unmount();
+  });
+
+  // The escape hatch a sheet uses: it asks what the entry costs before it
+  // decides how many to lay out, and hands the answer back rather than paying
+  // for the same measurement twice.
+  it("draws the set it is handed and measures nothing", async () => {
+    stubResizeObserver();
+    stubRectangles();
+
+    const { cards, unmount } = await renderSet({
+      card: overflowingCard,
+      set: CardSet.of(overflowingCard),
+    });
+
+    // Measured, this card splits in two. Handed a set of one it stays one,
+    // which it could not do if it had gone and measured anyway.
+    expect(cards).toHaveLength(1);
+    expect(textOf(cards)).not.toContain("1/2");
+
+    unmount();
   });
 
   it("renders sample cards the model accepts", () => {

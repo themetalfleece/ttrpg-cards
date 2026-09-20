@@ -1,0 +1,43 @@
+{
+  "name": "@ttrpg-cards/feature-catalog",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The bundled catalog laid out on a page, with live colour theme and card size controls.",
+  "sideEffects": [
+    "*.css"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@ttrpg-cards/card": "workspace:*",
+    "@ttrpg-cards/core": "workspace:*",
+    "@ttrpg-cards/printer": "workspace:*",
+    "@ttrpg-cards/srd": "workspace:*",
+    "@ttrpg-cards/ui": "workspace:*",
+    "clsx": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "eslint": "catalog:",
+    "jsdom": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

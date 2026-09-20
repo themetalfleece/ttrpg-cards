@@ -1,0 +1,31 @@
+/*
+ * The bubble. Capped so it reads as a couple of sentences rather than one long
+ * line across the window, and raised off the page rather than outlined,
+ * because it sits over whatever it was covering.
+ */
+.bubble {
+  max-width: 18rem;
+  border-radius: var(--radius-medium);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-surface-raised);
+  border: var(--border-width-hairline) solid var(--color-border);
+  box-shadow: var(--shadow-overlay);
+  color: var(--color-text);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-body);
+}
+
+/* Points at the trigger, so the bubble is read as belonging to it. */
+.arrow {
+  fill: var(--color-surface-raised);
+}
+
+/*
+ * A tooltip is something a pointer opened a moment ago, and a printed page has
+ * no pointer. It comes off the paper along with the rest of the chrome.
+ */
+@media print {
+  .bubble {
+    display: none;
+  }
+}

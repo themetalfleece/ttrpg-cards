@@ -109,6 +109,14 @@
   );
   background: var(--card-color-surface);
   color: var(--card-color-text);
+  /*
+   * A browser drops background colours when printing unless the reader finds
+   * the background graphics option, which is off by default. A card's theme is
+   * its fills, so without this the theme they picked silently prints as white
+   * paper with black text.
+   */
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
   font-family: var(--font-family-serif);
   font-size: var(--card-font-size);
   line-height: var(--line-height-body);

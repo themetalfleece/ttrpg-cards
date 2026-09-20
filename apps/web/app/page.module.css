@@ -3,10 +3,26 @@
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-6);
+}
 
-  & h1 {
-    margin: 0;
-    font-size: var(--font-size-display);
-    line-height: var(--line-height-tight);
+.title {
+  margin: 0;
+  font-size: var(--font-size-display);
+  line-height: var(--line-height-tight);
+  text-align: center;
+}
+
+/*
+ * Printing gives the reader the sheet and nothing else. The page's own name is
+ * chrome, and the padding around it belongs to the window, not to the paper.
+ */
+@media print {
+  .main {
+    gap: 0;
+    padding: 0;
+  }
+
+  .title {
+    display: none;
   }
 }

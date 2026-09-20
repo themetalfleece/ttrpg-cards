@@ -23,6 +23,16 @@ export interface CardSetViewProps {
    * theme: a continuation in another colour would not read as the same card.
    */
   theme?: CardThemeId | undefined;
+  /**
+   * The set to draw, for a caller that has already worked one out, such as a
+   * sheet deciding how many entries fit on it. Left off, the entry measures
+   * itself.
+   *
+   * This is the same escape hatch a card face keeps for its font size, and it
+   * exists for the same reason: the alternative is measuring the entry twice,
+   * once to be told what it costs and once to draw it.
+   */
+  set?: CardSet | undefined;
   /** Passed through for a consumer that positions the set. */
   className?: string | undefined;
 }
@@ -33,6 +43,8 @@ export interface UseCardSetOptions {
   card: Card;
   /** The geometry the split is measured against. */
   layout: CardLayout;
+  /** A set decided elsewhere. Given one, this measures nothing. */
+  set?: CardSet | undefined;
 }
 
 /**

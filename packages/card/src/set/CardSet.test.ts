@@ -27,19 +27,29 @@ import {
   unbreakableWordCard,
 } from "./set.fixtures";
 
-const defaultLayout = CardLayout.default();
+/**
+ * The layout the long fixtures are written against.
+ *
+ * The smallest type is pinned here rather than taken from the shipping text
+ * size, because these tests are about where a split falls and the fixtures are
+ * written to overrun a card by a known amount. How large the app sets type is
+ * a reader's setting, and moving it should not read here as a split that broke.
+ */
+const fixtureLayout = CardLayout.default().with({
+  fontSizeRange: { minimumMillimetres: 1.9, maximumMillimetres: 3.5 },
+});
 
 /** A card cut small enough that even a sentence or two will not fit on it. */
-const tinyLayout = defaultLayout.with({
+const tinyLayout = fixtureLayout.with({
   size: { widthMillimetres: 30, heightMillimetres: 30 },
 });
 
 /** A taller card, for showing the cut move without anything else changing. */
-const tallLayout = defaultLayout.with({
+const tallLayout = fixtureLayout.with({
   size: { heightMillimetres: 110 },
 });
 
-const fitsDefault = fitsByTextCapacity(defaultLayout);
+const fitsFixture = fitsByTextCapacity(fixtureLayout);
 
 /** The words a card or a set carries, in order. */
 function words(text: string): string[] {
@@ -105,7 +115,7 @@ describe("CardSet.positionAt", () => {
   it("reads as a position out of a total", () => {
     const set = CardSet.split({
       card: longBodyCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     });
 
     expect(set.positionAt(0)?.label).toBe("1/2");
@@ -119,7 +129,7 @@ describe("CardSet.positionAt", () => {
   it("has nothing to say about a card outside the set", () => {
     const set = CardSet.split({
       card: longBodyCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     });
 
     expect(set.positionAt(-1)).toBeUndefined();
@@ -131,7 +141,7 @@ describe("CardSet.split", () => {
   it("leaves a card that fits whole and untouched", () => {
     const set = CardSet.split({
       card: minimalCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     });
 
     expect(set.length).toBe(1);
@@ -142,7 +152,7 @@ describe("CardSet.split", () => {
   it("splits an entry that overflows into exactly two cards", () => {
     const set = CardSet.split({
       card: longBodyCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     });
 
     expect(set.length).toBe(2);
@@ -155,7 +165,7 @@ describe("CardSet.split", () => {
   it("loses no word and repeats none", () => {
     const set = CardSet.split({
       card: longBodyCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     });
 
     expect(words(set.bodyText)).toEqual(sourceWords(longBodyCard));
@@ -164,7 +174,7 @@ describe("CardSet.split", () => {
   it("keeps the whole card on the first of the set", () => {
     const [first] = CardSet.split({
       card: longBodyCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     }).cards;
 
     expect(first?.meta).toEqual(longBodyCard.meta);
@@ -175,7 +185,7 @@ describe("CardSet.split", () => {
   it("carries the name onto a continuation and the stat block nowhere", () => {
     const set = CardSet.split({
       card: longBodyCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     });
     const continuation = set.cards[1];
 
@@ -189,7 +199,7 @@ describe("CardSet.split", () => {
   it("builds a continuation's id from the card the set was made from", () => {
     const set = CardSet.split({
       card: longBodyCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     });
 
     expect(set.id).toBe(longBodyCard.id);
@@ -201,7 +211,7 @@ describe("CardSet.split", () => {
   it("cuts between blocks while there is a block boundary to use", () => {
     const set = CardSet.split({
       card: longBodyCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     });
 
     // Every block of every card is a block of the card it came from, which is
@@ -218,7 +228,7 @@ describe("CardSet.split", () => {
   it("cuts inside a block at a sentence end when there is no block boundary", () => {
     const set = CardSet.split({
       card: oneLongBlockCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     });
 
     const opening = set.cards[0]?.body[0];
@@ -255,7 +265,7 @@ describe("CardSet.split", () => {
   it("splits a list between its items and sets them back out as a list", () => {
     const set = CardSet.split({
       card: longListCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     });
 
     expect(set.length).toBe(2);
@@ -291,7 +301,7 @@ describe("CardSet.split", () => {
   it("keeps a cut aside's label on its opening half only", () => {
     const set = CardSet.split({
       card: longCalloutCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     });
     const labels = set.cards.map((card) =>
       calloutLabel(card.body[0]),
@@ -306,7 +316,7 @@ describe("CardSet.split", () => {
   it("moves a block forward rather than leaving one alone on the last card", () => {
     const set = CardSet.split({
       card: orphanLastBlockCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     });
 
     expect(set.length).toBe(2);
@@ -319,7 +329,7 @@ describe("CardSet.split", () => {
   it("moves the cut when the card is cut to another size", () => {
     const onDefault = CardSet.split({
       card: longBodyCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     });
     const onTall = CardSet.split({
       card: longBodyCard,
@@ -335,11 +345,11 @@ describe("CardSet.split", () => {
   it("gives the same answer every time for the same card and geometry", () => {
     const first = CardSet.split({
       card: longBodyCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     });
     const second = CardSet.split({
       card: longBodyCard,
-      fits: fitsDefault,
+      fits: fitsFixture,
     });
 
     expect(second.cards).toEqual(first.cards);
@@ -373,7 +383,7 @@ describe("CardSet.split", () => {
     for (const card of cards) {
       expect(CardModel.validate(card)).toEqual([]);
 
-      for (const split of CardSet.split({ card, fits: fitsDefault })
+      for (const split of CardSet.split({ card, fits: fitsFixture })
         .cards) {
         expect(CardModel.validate(split)).toEqual([]);
       }

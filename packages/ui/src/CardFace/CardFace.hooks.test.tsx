@@ -8,6 +8,7 @@ import {
   CARD_FONT_SIZE_PROPERTY,
   FIT_TOLERANCE_PIXELS,
 } from "./CardFace.constants";
+import { contentFitsInside } from "./CardFace.hooks";
 import { spellShapedCard } from "./CardFace.fixtures";
 
 // React runs effects synchronously inside `act` only once it knows it is under
@@ -179,5 +180,70 @@ describe("useFittedFontSize", () => {
     expect(observer.disconnected()).toBe(false);
     unmount();
     expect(observer.disconnected()).toBe(true);
+  });
+});
+
+/**
+ * A card whose box and content are stubbed, drawn at `scale` by something
+ * above it: the rectangles come back scaled, the computed lengths do not, and
+ * `offsetHeight` stays in laid out pixels. That is what a browser reports
+ * under a `zoom` or a `transform`, measured rather than assumed.
+ */
+function stubbedCard(options: {
+  scale: number;
+  contentHeight: number;
+}): HTMLElement {
+  const cardHeight = 100;
+  const paddingBottom = 10;
+  const card = document.createElement("article");
+
+  card.style.paddingBottom = `${paddingBottom}px`;
+
+  const child = document.createElement("div");
+
+  card.append(child);
+  document.body.append(card);
+
+  Object.defineProperty(card, "offsetHeight", {
+    configurable: true,
+    value: cardHeight,
+  });
+  card.getBoundingClientRect = () =>
+    new DOMRect(0, 0, 0, cardHeight * options.scale);
+  child.getBoundingClientRect = () =>
+    new DOMRect(0, 0, 0, options.contentHeight * options.scale);
+
+  restores.push(() => {
+    card.remove();
+  });
+
+  return card;
+}
+
+describe("contentFitsInside", () => {
+  // The room a card has is the same room whatever size it is drawn at, so the
+  // answer has to be too. Subtracting an unscaled padding from a scaled edge
+  // would hand a scaled up card room it does not have and overflow it.
+  it("gives the same answer however the card is being drawn", () => {
+    for (const scale of [1, 1.4, 2.5, 0.75]) {
+      expect(
+        contentFitsInside(stubbedCard({ scale, contentHeight: 80 })),
+      ).toBe(true);
+      expect(
+        contentFitsInside(stubbedCard({ scale, contentHeight: 95 })),
+      ).toBe(false);
+    }
+  });
+
+  it("treats a card with no laid out height as unscaled", () => {
+    const card = document.createElement("article");
+
+    document.body.append(card);
+    card.getBoundingClientRect = () => new DOMRect(0, 0, 0, 0);
+    restores.push(() => {
+      card.remove();
+    });
+
+    expect(contentFitsInside(card)).toBe(true);
   });
 });

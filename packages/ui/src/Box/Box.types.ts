@@ -14,6 +14,8 @@ export interface BoxProps {
   /** What to render. A `div` unless the content asks for another. */
   as?: BoxElement | undefined;
   className?: string | undefined;
+  /** For a container something else has to point at, such as a group's label. */
+  id?: string | undefined;
   /** For the custom properties a surface sets on its own root. */
   style?: CSSProperties | undefined;
   children?: ReactNode | undefined;

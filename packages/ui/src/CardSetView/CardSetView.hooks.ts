@@ -126,16 +126,25 @@ function splitByMeasurement({
  * a card that needs no split will stay as and what the server's markup says.
  * A card or a layout that has changed since falls back to the same, rather
  * than showing a split worked out for something else.
+ *
+ * Given a `set`, it measures nothing and hands that back. That is for a caller
+ * that has already worked one out, such as a sheet that asked what each entry
+ * would cost it before deciding how many to lay out.
  */
 export function useCardSet({
   card,
   layout,
+  set,
 }: UseCardSetOptions): CardSet {
   const [measured, setMeasured] = useState<
     MeasuredCardSet | undefined
   >(undefined);
 
   useEffect(() => {
+    if (set !== undefined) {
+      return;
+    }
+
     let current = true;
 
     // Measuring renders cards of its own synchronously, which React refuses
@@ -156,7 +165,11 @@ export function useCardSet({
     return () => {
       current = false;
     };
-  }, [card, layout]);
+  }, [card, layout, set]);
+
+  if (set !== undefined) {
+    return set;
+  }
 
   if (measured?.card === card && measured.layout === layout) {
     return measured.set;

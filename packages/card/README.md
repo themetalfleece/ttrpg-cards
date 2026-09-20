@@ -110,11 +110,31 @@ const resized = layout.with({ size: { widthMillimetres: 70 } });
 Anything left out of the overrides keeps the value it had, so a size changes without restating
 margins that have nothing to do with it.
 
-**Sizes are presets plus overrides.** `CARD_LAYOUT_PRESETS` in `layout.constants.ts` is the one
-place a card measurement is written down, and a preset is a complete layout rather than a size
-alone, so a size that wants different margins or a different text range can say so. Adding one is
-an entry in that record and nothing else: `CardLayout.fromPreset({ preset, overrides })` picks it
-up and no consumer changes. Only the default ships today.
+**A layout is a size and a text size, picked separately.** `CARD_LAYOUT_PRESETS` in
+`layout.constants.ts` is the one place a card measurement is written down: the dimensions a card
+is cut to and the margins that keep content off the trimmed edge. `CARD_TEXT_SIZE_PRESETS` is the
+band the fitting routine may set type within. `CardLayout.fromPreset({ preset, textSize,
+overrides })` combines one of each, and either may be left out for its default.
+
+They are two records because they answer two questions. How large a card is cut is a property of
+the card, and a reader who wants a smaller stack picks a smaller box. How large its type is set
+is a property of the reader, and someone who cannot read 9 point across a table wants it larger
+whatever the card. Neither answer tells you the other, and a preset holding both would make
+every combination a new entry.
+
+Adding either is an entry in its record and the name a picker calls it by, and nothing else. The
+name lives beside the record rather than inside the preset, because the layout schema rejects a
+field it does not know and a label sitting in one would make it fail its own validation.
+`CARD_SIZES` and `CARD_TEXT_SIZES` are each the two together, ordered, which is what a picker
+offers.
+
+**The smallest type is the one the reader picked, everywhere on the card.** `small` floors at
+2.38mm, which is 9 CSS pixels, and that is the default: it is the setting that fits the most on a
+card and splits the fewest entries. Every region of a card is a ratio of the body size, and a
+ratio cannot hold a floor because it moves with what it multiplies, so the renderer clamps every
+region that sets type smaller than the body to this minimum. Raising the setting raises the
+smallest text anywhere on the card, not only in its body. What a larger card buys is not a
+different floor but more room before an entry has to run onto a second card.
 
 **Every instance is a usable geometry.** The constructor holds its input to the schema and to the
 relations between fields that a schema cannot state, then copies it, so a consumer reading the

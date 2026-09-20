@@ -1,0 +1,12 @@
+/* The sheet's settings in a row, with the action they lead to at the end. */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  align-items: flex-end;
+}
+
+/* Sits on the baseline of the choice tracks beside it rather than above them. */
+.print {
+  align-self: flex-end;
+}

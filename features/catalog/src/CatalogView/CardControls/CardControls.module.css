@@ -1,0 +1,7 @@
+/* The controls sit in a row and wrap onto the next line on a narrow window. */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  align-items: flex-end;
+}

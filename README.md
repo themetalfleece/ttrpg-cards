@@ -57,8 +57,8 @@ features/     feature slices, testable without the framework
 packages/     @ttrpg-cards/* workspace packages
 ```
 
-Each package under `packages/` has its own `README.md` describing what it owns and the boundaries
-it keeps.
+Each package under `packages/` and each slice under `features/` has its own `README.md`
+describing what it owns and the boundaries it keeps.
 
 ## Dependency versions: what `catalog:` means
 

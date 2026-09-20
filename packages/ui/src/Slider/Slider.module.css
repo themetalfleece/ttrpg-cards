@@ -1,0 +1,110 @@
+.slider {
+  /* Wide enough to drag with some precision, narrow enough to sit in a row. */
+  --slider-width: 14rem;
+  --slider-rail-height: var(--space-1);
+  --slider-thumb-size: var(--space-4);
+  /* Matches the cap height of the label beside it, so the mark reads as part
+     of that line rather than as a button parked next to it. */
+  --slider-hint-size: var(--space-4);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: var(--slider-width);
+}
+
+/* Label first, its aside beside it, and the readout pushed to the far end. */
+.heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+}
+
+.readout {
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The mark that opens the aside. Round and quiet: it is there to be found when
+ * a reader wonders, not to compete with the control it explains. A help cursor
+ * rather than a pointer, because resting on it is the whole interaction.
+ */
+.hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--slider-hint-size);
+  height: var(--slider-hint-size);
+  padding: 0;
+  border: var(--border-width-hairline) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-tight);
+  cursor: help;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--color-accent);
+    color: var(--color-text);
+  }
+}
+
+/*
+ * The track takes the shared control height rather than the thumb's, so a
+ * slider lines up with a segmented track or a button beside it. The thumb is
+ * centred in whatever that height is, so the rail stays where the eye expects
+ * it however the two are set.
+ */
+.track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--control-height);
+  touch-action: none;
+  user-select: none;
+}
+
+.rail {
+  position: relative;
+  flex-grow: 1;
+  height: var(--slider-rail-height);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-sunken);
+  border: var(--border-width-hairline) solid var(--color-border);
+}
+
+.filled {
+  position: absolute;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent);
+}
+
+.thumb {
+  display: block;
+  width: var(--slider-thumb-size);
+  height: var(--slider-thumb-size);
+  border: var(--border-width-hairline) solid var(--color-accent);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-raised);
+  box-shadow: var(--shadow-raised);
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}

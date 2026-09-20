@@ -1,0 +1,30 @@
+/* Held to the shared control height, so a button in a row of controls lines
+   up with the tracks either side of it. */
+.button {
+  box-sizing: border-box;
+  min-height: var(--control-height);
+  border: var(--border-width-hairline) solid var(--color-accent);
+  border-radius: var(--radius-medium);
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font: inherit;
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  box-shadow: var(--shadow-raised);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background-color: var(--color-text);
+    border-color: var(--color-text);
+  }
+
+  &:disabled {
+    background-color: var(--color-surface-sunken);
+    border-color: var(--color-border);
+    color: var(--color-text-muted);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+}

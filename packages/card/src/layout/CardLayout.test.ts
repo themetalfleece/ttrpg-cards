@@ -1,7 +1,14 @@
+import type { Dimensions } from "@ttrpg-cards/core";
 import { describe, expect, it } from "vitest";
 
 import { CardLayout } from "./CardLayout";
-import { CARD_LAYOUT_PRESETS } from "./layout.constants";
+import {
+  CARD_LAYOUT_PRESETS,
+  CARD_SIZES,
+  CARD_TEXT_SIZE_PRESETS,
+  CARD_TEXT_SIZES,
+  DEFAULT_CARD_TEXT_SIZE,
+} from "./layout.constants";
 import type { CardLayoutSettings } from "./layout.types";
 
 /** A layout with round numbers, for reading the arithmetic off the test. */
@@ -35,12 +42,116 @@ describe("CardLayout.default", () => {
 });
 
 describe("CARD_LAYOUT_PRESETS", () => {
-  it("ships only layouts that are usable geometry", () => {
-    const presets = Object.values(CARD_LAYOUT_PRESETS);
+  // A preset is a box, not a whole layout: it carries no font size range, so
+  // it only becomes usable geometry once a text size is combined with it.
+  it("becomes usable geometry at every text size", () => {
+    for (const size of CARD_SIZES) {
+      for (const textSize of CARD_TEXT_SIZES) {
+        expect(() =>
+          CardLayout.fromPreset({
+            preset: size.id,
+            textSize: textSize.id,
+          }),
+        ).not.toThrow();
+      }
+    }
+  });
 
-    expect(presets.length).toBeGreaterThan(0);
-    for (const preset of presets) {
-      expect(CardLayout.validate(preset)).toEqual([]);
+  it("ships more than one size, so a size is something to pick", () => {
+    expect(Object.keys(CARD_LAYOUT_PRESETS).length).toBeGreaterThan(
+      1,
+    );
+  });
+});
+
+describe("CARD_TEXT_SIZE_PRESETS", () => {
+  it("ships more than one, so a text size is something to pick", () => {
+    expect(
+      Object.keys(CARD_TEXT_SIZE_PRESETS).length,
+    ).toBeGreaterThan(1);
+  });
+
+  // The whole point of the setting: picking a larger one raises the smallest
+  // text anywhere on the card, not just the body.
+  it("raises both ends as the setting goes up", () => {
+    const floors = CARD_TEXT_SIZES.map(
+      (size) => CARD_TEXT_SIZE_PRESETS[size.id].minimumMillimetres,
+    );
+    const ceilings = CARD_TEXT_SIZES.map(
+      (size) => CARD_TEXT_SIZE_PRESETS[size.id].maximumMillimetres,
+    );
+
+    expect(floors).toEqual([...floors].sort((a, b) => a - b));
+    expect(ceilings).toEqual([...ceilings].sort((a, b) => a - b));
+    expect(new Set(floors).size).toBe(floors.length);
+  });
+
+  // 9 CSS pixels, the smallest this app sets text at. Pinned because it is the
+  // floor the default lands on, and dropping it is a legibility decision
+  // rather than a tidy-up.
+  it("starts at nine pixels, which is what the default is", () => {
+    const smallest =
+      CARD_TEXT_SIZE_PRESETS[DEFAULT_CARD_TEXT_SIZE]
+        .minimumMillimetres;
+    const CSS_PIXELS_PER_INCH = 96;
+    const MILLIMETRES_PER_INCH = 25.4;
+
+    expect(
+      (smallest / MILLIMETRES_PER_INCH) * CSS_PIXELS_PER_INCH,
+    ).toBeCloseTo(9, 1);
+  });
+
+  it("leaves the fitting routine room to scale before it splits", () => {
+    for (const size of CARD_TEXT_SIZES) {
+      const range = CARD_TEXT_SIZE_PRESETS[size.id];
+
+      expect(range.maximumMillimetres).toBeGreaterThan(
+        range.minimumMillimetres,
+      );
+    }
+  });
+});
+
+describe("CARD_SIZES", () => {
+  it("names every preset exactly once, in the order they are declared", () => {
+    expect(CARD_SIZES.map((size) => size.id)).toEqual(
+      Object.keys(CARD_LAYOUT_PRESETS),
+    );
+  });
+
+  it("carries a label and lays out from the preset it names", () => {
+    for (const size of CARD_SIZES) {
+      expect(size.name).not.toBe("");
+      expect(CardLayout.fromPreset({ preset: size.id }).size).toEqual(
+        CARD_LAYOUT_PRESETS[size.id].size,
+      );
+    }
+  });
+});
+
+describe("CARD_TEXT_SIZES", () => {
+  it("names every text size exactly once, in the order they are declared", () => {
+    expect(CARD_TEXT_SIZES.map((size) => size.id)).toEqual(
+      Object.keys(CARD_TEXT_SIZE_PRESETS),
+    );
+  });
+
+  it("carries a label and sets type in the band it names", () => {
+    for (const size of CARD_TEXT_SIZES) {
+      expect(size.name).not.toBe("");
+      expect(
+        CardLayout.fromPreset({ textSize: size.id }).fontSizeRange,
+      ).toEqual(CARD_TEXT_SIZE_PRESETS[size.id]);
+    }
+  });
+
+  // The two are independent choices, which is why they are separate records.
+  it("sets the same band on every card size", () => {
+    for (const size of CARD_SIZES) {
+      expect(
+        CardLayout.fromPreset({ preset: size.id, textSize: "large" })
+          .fontSizeRange,
+      ).toEqual(CARD_TEXT_SIZE_PRESETS.large);
     }
   });
 });
@@ -111,6 +222,18 @@ describe("CardLayout constructor", () => {
           },
         }),
     ).toThrow(TypeError);
+  });
+});
+
+describe("CardLayout size", () => {
+  // A sheet compares a card to a paper, so both have to be the one shape the
+  // app measures things in. The schema is what makes a card size what it is,
+  // so this is the assignment that keeps the two from drifting apart.
+  it("is the shape every measurement in the app takes", () => {
+    const size: Dimensions = CardLayout.default().size;
+
+    expect(size.widthMillimetres).toBe(63);
+    expect(size.heightMillimetres).toBe(88);
   });
 });
 

@@ -7,7 +7,9 @@ import {
 
 import {
   CARD_LAYOUT_PRESETS,
+  CARD_TEXT_SIZE_PRESETS,
   DEFAULT_CARD_LAYOUT_PRESET,
+  DEFAULT_CARD_TEXT_SIZE,
 } from "./layout.constants";
 import { CardLayoutSettingsSchema } from "./layout.schemas";
 import type {
@@ -17,6 +19,7 @@ import type {
   CardLayoutSettings,
   CardMargins,
   CardSize,
+  CardTextSizeName,
 } from "./layout.types";
 
 /** What input has failed to be, for an error message. */
@@ -70,19 +73,30 @@ export class CardLayout {
     return CardLayout.fromPreset({});
   }
 
-  /** A named size, with any part of it overridden. */
+  /**
+   * A named size set at a named text size, with any part of it overridden.
+   *
+   * The two are picked apart because they are different kinds of decision: how
+   * large a card is cut is one, and how large the type on it may be is
+   * another, and a reader changes them independently.
+   */
   static fromPreset(options: {
     preset?: CardLayoutPresetName;
+    textSize?: CardTextSizeName;
     overrides?: CardLayoutOverrides;
   }): CardLayout {
     const preset =
       CARD_LAYOUT_PRESETS[
         options.preset ?? DEFAULT_CARD_LAYOUT_PRESET
       ];
+    const fontSizeRange =
+      CARD_TEXT_SIZE_PRESETS[
+        options.textSize ?? DEFAULT_CARD_TEXT_SIZE
+      ];
 
     return new CardLayout({
       settings: CardLayout.#merged({
-        base: preset,
+        base: { ...preset, fontSizeRange },
         overrides: options.overrides,
       }),
     });

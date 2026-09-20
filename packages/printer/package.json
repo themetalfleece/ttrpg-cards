@@ -15,7 +15,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@ttrpg-cards/card": "workspace:*"
+    "@ttrpg-cards/card": "workspace:*",
+    "@ttrpg-cards/core": "workspace:*"
   },
   "devDependencies": {
     "eslint": "catalog:",

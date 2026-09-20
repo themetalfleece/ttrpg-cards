@@ -13,6 +13,8 @@ const nextConfig: NextConfig = {
   },
   transpilePackages: [
     "@ttrpg-cards/card",
+    "@ttrpg-cards/core",
+    "@ttrpg-cards/feature-catalog",
     "@ttrpg-cards/importer",
     "@ttrpg-cards/printer",
     "@ttrpg-cards/srd",
