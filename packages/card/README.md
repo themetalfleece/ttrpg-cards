@@ -202,6 +202,20 @@ This sits next to `CARD_LAYOUT_PRESETS` for the same reason the sizes do: a them
 both card configuration the user picks and `@ttrpg-cards/storage` persists, and storage validates
 what it read back against this package rather than taking a dependency on the renderer.
 
+## The typefaces
+
+`CARD_TYPEFACES` names the pairings of faces a card can be set in, and `isCardTypefaceId` is the
+guard a stored preference is read back through, on the same terms as the themes.
+
+A pairing is a display face for the title, the badge and the footer, and a workhorse for the body
+and the property labels. **Names only, again: no family name is ever written here.** Which faces a
+pairing draws is `@ttrpg-cards/ui`'s business.
+
+One thing sets it apart from a theme. Choosing a colour cannot move anything, so a card can be
+measured without one; choosing a face changes how wide the text runs, so it changes where an
+entry splits. A pairing therefore travels with the layout into every measurement rather than
+being set once on a surface above the cards.
+
 ## Boundaries
 
 - Imported by `features/*` and by other packages. Never imports a feature slice or `apps/web`.

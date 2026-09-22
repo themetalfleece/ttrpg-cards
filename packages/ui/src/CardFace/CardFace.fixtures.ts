@@ -193,3 +193,28 @@ export const minimalCard: Card = {
     },
   ],
 };
+
+/** A name far longer than the band, which has to step down to fit inside it. */
+export const longNameCard: Card = {
+  id: "lantern-of-the-drowned-cartographer",
+  name: RichText.of("Lantern of the Drowned Cartographer"),
+  badge: RichText.of("7"),
+  meta: [
+    { label: RichText.of("Type"), value: RichText.of("Carried") },
+    { label: RichText.of("Rarity"), value: RichText.of("Legendary") },
+    {
+      label: RichText.of("Attunement"),
+      value: RichText.of("Required"),
+    },
+    { label: RichText.of("Weight"), value: RichText.of("1.1 kg") },
+  ],
+  body: [
+    {
+      kind: CARD_BLOCK_KINDS.paragraph,
+      text: RichText.of(
+        "It burns underwater and nowhere else, and the charts it lights are the ones nobody came back with.",
+      ),
+    },
+  ],
+  footer: [RichText.of("Salvaged"), RichText.of("Cartographer")],
+};

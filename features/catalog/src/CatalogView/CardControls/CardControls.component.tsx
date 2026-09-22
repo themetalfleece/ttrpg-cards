@@ -9,13 +9,15 @@ import {
   TEXT_SIZE_OPTIONS,
   THEME_LABEL,
   THEME_OPTIONS,
+  TYPEFACE_LABEL,
+  TYPEFACE_OPTIONS,
 } from "./CardControls.constants";
 import styles from "./CardControls.module.css";
 import type { CardControlsProps } from "./CardControls.types";
 
 /**
- * What a reader can change about the cards on the page: their color, the size
- * they are cut to, and how large the type on them is set.
+ * What a reader can change about the cards on the page: their color, the faces
+ * they are set in, the size they are cut to, and how large that type is set.
  *
  * Each is a choice the packages already model, so the control offers whatever
  * the registries list and reports a pick. None of them holds state of its own.
@@ -27,6 +29,8 @@ import type { CardControlsProps } from "./CardControls.types";
 export function CardControls({
   theme,
   onThemeChange,
+  typeface,
+  onTypefaceChange,
   size,
   onSizeChange,
   textSize,
@@ -40,6 +44,12 @@ export function CardControls({
         options={THEME_OPTIONS}
         value={theme}
         onValueChange={onThemeChange}
+      />
+      <ChoiceGroup
+        label={TYPEFACE_LABEL}
+        options={TYPEFACE_OPTIONS}
+        value={typeface}
+        onValueChange={onTypefaceChange}
       />
       <ChoiceGroup
         label={SIZE_LABEL}

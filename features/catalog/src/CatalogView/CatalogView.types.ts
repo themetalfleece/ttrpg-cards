@@ -4,6 +4,7 @@ import type {
   CardLayoutPresetName,
   CardTextSizeName,
   CardThemeId,
+  CardTypefaceId,
 } from "@ttrpg-cards/card";
 import type { ImportIssue } from "@ttrpg-cards/importer";
 import type {
@@ -45,10 +46,26 @@ export interface ImportSummary {
   readonly issues: readonly ImportIssue[];
 }
 
+/**
+ * How much of the bundled catalog the page is laying out.
+ *
+ * The bundled cards are a sample the app opens on rather than a set anybody
+ * chose, so the page shows some of them and says so. Nothing a reader brings
+ * is ever counted here: what they hand over is laid out in full.
+ */
+export interface BundledSample {
+  /** How many of them the page is laying out. */
+  readonly shown: number;
+  /** How many the app bundles in total. */
+  readonly total: number;
+}
+
 /** What the page is drawn from, and what changes it. */
 export interface CatalogSelection {
   /** The colour theme every card on the page is drawn in. */
   readonly theme: CardThemeId;
+  /** The pairing of faces every card on the page is set in. */
+  readonly typeface: CardTypefaceId;
   /** The size every card on the page is cut to. */
   readonly size: CardLayoutPresetName;
   /** How large the type on every card is set, everywhere on the card. */
@@ -74,6 +91,8 @@ export interface CatalogSelection {
   readonly attributions: readonly CatalogAttribution[];
   /** What the reader has brought, or undefined until they bring something. */
   readonly importSummary: ImportSummary | undefined;
+  /** How much of the bundled catalog is on the page until they do. */
+  readonly bundled: BundledSample;
   /**
    * How much the preview is drawn larger or smaller than CSS would have it,
    * so a card on screen is the size it will be cut to. 1 until calibrated.
@@ -81,6 +100,8 @@ export interface CatalogSelection {
   readonly screenScale: number;
   /** Picks a colour theme. */
   readonly chooseTheme: (theme: CardThemeId) => void;
+  /** Picks a pairing of faces. */
+  readonly chooseTypeface: (typeface: CardTypefaceId) => void;
   /** Picks a card size. */
   readonly chooseSize: (size: CardLayoutPresetName) => void;
   /** Picks how large the type is set. */
@@ -91,8 +112,8 @@ export interface CatalogSelection {
   readonly chooseOrientation: (orientation: PageOrientation) => void;
   /** Sets how much the preview is scaled by. */
   readonly chooseScreenScale: (scale: number) => void;
-  /** Reads a document the reader brought, adding its cards to the page. */
-  readonly importMarkdown: (source: string) => void;
+  /** Reads the documents the reader brought, adding their cards to the page. */
+  readonly importMarkdown: (sources: readonly string[]) => void;
   /** Takes every card they brought off, and puts the bundled ones back. */
   readonly clearImport: () => void;
 }

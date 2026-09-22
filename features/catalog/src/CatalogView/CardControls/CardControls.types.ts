@@ -2,6 +2,7 @@ import type {
   CardLayoutPresetName,
   CardTextSizeName,
   CardThemeId,
+  CardTypefaceId,
 } from "@ttrpg-cards/card";
 
 /** What a reader can change about the cards on the page, live. */
@@ -10,6 +11,10 @@ export interface CardControlsProps {
   theme: CardThemeId;
   /** Called with the theme the reader picked. */
   onThemeChange: (theme: CardThemeId) => void;
+  /** The pairing of faces the cards are set in. */
+  typeface: CardTypefaceId;
+  /** Called with the pairing the reader picked. */
+  onTypefaceChange: (typeface: CardTypefaceId) => void;
   /** The size the cards are cut to. */
   size: CardLayoutPresetName;
   /** Called with the size the reader picked. */

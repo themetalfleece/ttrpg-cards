@@ -1,35 +1,58 @@
 import { Box } from "@ttrpg-cards/ui/Box";
 import { RichTextView } from "@ttrpg-cards/ui/RichTextView";
+import clsx from "clsx";
+import { useRef, type CSSProperties } from "react";
 
+import {
+  opensRow,
+  statBlockStyle,
+  stripColumns,
+} from "./StatBlock.data";
+import { useFittedLabelScale } from "./StatBlock.hooks";
 import styles from "./StatBlock.module.css";
 import type { StatBlockProps } from "./StatBlock.types";
 
 /**
- * The stat block, set as running text: label then value, field after field,
- * wrapping when the line runs out.
+ * The stat block, set as a strip of equal cells: a label in small caps over
+ * its value, cell after cell, separated by rules.
  *
- * Running text rather than a row of cells because how many fields a card
- * carries and how long each one is are the card's business. A short stat block
- * takes one line and a long one takes three, and neither has to agree with a
- * column width chosen before either was read.
+ * Cells rather than running text because a reader looking for one field is
+ * looking in a place, and a strip puts every field in the same place on every
+ * card. A value too long for its cell wraps inside it and the strip grows
+ * taller; nothing is ever shortened to make a row fit, because a card that
+ * understates what it says is worse than one line less body.
  *
  * The fields are whatever the card carries: nothing here knows what kind of
  * card it is on, which is why one component sets out a casting time and a
  * carried weight alike.
  *
- * The space between a label and its value is a real space rather than a
- * margin. A margin is a gap the eye sees and the line breaker does not, so a
- * label and value set with one are a single unbreakable word that runs off the
- * edge of the card instead of wrapping.
+ * The labels step down to fit their cells, which is measured here rather than
+ * by the card. That also settles the order the card is put together in: a
+ * child's effects run before its parent's, so the labels have taken their step
+ * by the time the card is fitted against the room the strip leaves.
  */
-export function StatBlock({ fields }: StatBlockProps) {
+export function StatBlock({ fields, typeface }: StatBlockProps) {
+  const stripRef = useRef<HTMLDListElement>(null);
+  const columns = stripColumns(fields.length);
+  // React types `style` as the properties it knows about, so the custom
+  // property the stylesheet reads needs the assertion.
+  const style = statBlockStyle({ columns }) as CSSProperties;
+
+  useFittedLabelScale({ fields, typeface, stripRef });
+
   return (
-    <dl className={styles.statBlock}>
+    <dl ref={stripRef} className={styles.statBlock} style={style}>
       {fields.map((field, index) => (
-        <Box key={index} className={styles.statField}>
+        <Box
+          key={index}
+          className={clsx(
+            styles.statField,
+            opensRow({ index, columns }) && styles.statFieldRowStart,
+          )}
+        >
           <dt className={styles.statLabel}>
             <RichTextView text={field.label} />
-          </dt>{" "}
+          </dt>
           <dd className={styles.statValue}>
             <RichTextView text={field.value} />
           </dd>

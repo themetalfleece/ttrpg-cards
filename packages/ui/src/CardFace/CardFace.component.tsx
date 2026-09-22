@@ -4,17 +4,23 @@
 
 import { Box } from "@ttrpg-cards/ui/Box";
 import { RichTextView } from "@ttrpg-cards/ui/RichTextView";
-import { Separator } from "@ttrpg-cards/ui/Separator";
 import clsx from "clsx";
 import { type CSSProperties, useRef } from "react";
 
 import { BodyBlock } from "./BodyBlock/BodyBlock.component";
 import { cardFaceStyle } from "./CardFace.data";
-import { useFittedFontSize } from "./CardFace.hooks";
+import {
+  useFittedFontSize,
+  useFittedNameScale,
+} from "./CardFace.hooks";
 import styles from "./CardFace.module.css";
-// The palettes the `data-card-theme` attribute below selects between. Global
-// rather than a module, so they ship wherever a card does.
+// The faces, and the palettes and pairings the `data-card-*` attributes below
+// select between. Global rather than modules, so they ship wherever a card
+// does. The faces come from the package's own font directory, because a
+// vendored family is not the card face's to own.
+import "@ttrpg-cards/ui/fonts.css";
 import "./CardFace.themes.css";
+import "./CardFace.typefaces.css";
 import type { CardFaceProps } from "./CardFace.types";
 import { StatBlock } from "./StatBlock/StatBlock.component";
 
@@ -26,30 +32,57 @@ import { StatBlock } from "./StatBlock/StatBlock.component";
  * another is a meta field, so a spell and a piece of gear go through the same
  * regions in the same order.
  *
+ * Top to bottom: a band holding the title, the stat block as a strip of cells
+ * under it, the body, and a footer rule. The band reserves the same width at
+ * each end whether or not anything sits there, so the title is centred on the
+ * band rather than on whatever the markers left over, and a card of a set
+ * measures the same as one that stands alone.
+ *
  * Every length is a custom property set from the layout, so a card at another
  * size is this markup with different numbers.
  *
- * Text is set at whatever size the content fits at, measured in place. The
- * card's box never changes: a card is cut to a size and the type gives way.
+ * What the reader reads is fitted and the chrome is not. The body and the
+ * values in the strip are set at whatever size the content fits at, measured
+ * in place; the band, the labels and the footer are set from the text size the
+ * reader picked and stay there, so two cards of one entry still read as a
+ * pair. The card's box never changes either: a card is cut to a size and the
+ * type gives way.
  *
- * A card carrying a `position` is one of a set, and says so beside its name.
+ * The title is the one piece of chrome that moves, and only for its own
+ * reason: a long name steps down until it fits the band, and wraps to a second
+ * line only once it has run out of room to shrink into.
  *
- * Colour is a theme, named on the card and read from the stylesheet, so the
- * face knows which theme it is wearing and nothing about what is in it.
+ * A card carrying a `position` is one of a set, and shows it at the left end
+ * of the band.
+ *
+ * Colour and faces are a theme and a pairing, named on the card and read from
+ * the stylesheets, so the face knows what it is wearing and nothing about what
+ * is in it.
  */
 export function CardFace({
   card,
   layout,
   position,
   theme,
+  typeface,
   fontSizeMillimetres,
   className,
 }: CardFaceProps) {
   const frameRef = useRef<HTMLElement>(null);
+  const bandRef = useRef<HTMLElement>(null);
+  const nameRef = useRef<HTMLHeadingElement>(null);
+  const nameFit = useFittedNameScale({
+    layout,
+    card,
+    typeface,
+    nameRef,
+  });
   const fittedMillimetres = useFittedFontSize({
     layout,
     card,
+    typeface,
     frameRef,
+    bandRef,
     fontSizeMillimetres,
   });
 
@@ -65,34 +98,47 @@ export function CardFace({
       ref={frameRef}
       className={clsx(styles.card, className)}
       data-card-theme={theme}
+      data-card-typeface={typeface}
       style={style}
     >
-      <header className={styles.header}>
-        <Box className={styles.heading}>
-          <h2 className={styles.name}>
-            <RichTextView text={card.name} />
-          </h2>
-          {card.badge !== undefined && (
-            <Box as="span" className={styles.badge}>
-              <RichTextView text={card.badge} />
-            </Box>
-          )}
+      <header ref={bandRef} className={styles.band}>
+        <Box as="span" className={styles.bandEnd}>
           {position !== undefined && (
             <Box as="span" className={styles.position}>
               {position.label}
             </Box>
           )}
         </Box>
-        {card.subtitle !== undefined && (
-          <Box as="p" className={styles.subtitle}>
-            <RichTextView text={card.subtitle} />
-          </Box>
-        )}
+        <h2
+          ref={nameRef}
+          className={clsx(
+            styles.name,
+            nameFit.wraps && styles.nameWraps,
+          )}
+        >
+          <RichTextView text={card.name} />
+        </h2>
+        <Box
+          as="span"
+          className={clsx(styles.bandEnd, styles.bandEndTrailing)}
+        >
+          {card.badge !== undefined && (
+            <Box as="span" className={styles.badge}>
+              <RichTextView text={card.badge} />
+            </Box>
+          )}
+        </Box>
       </header>
 
-      {card.meta.length > 0 && <StatBlock fields={card.meta} />}
+      {card.subtitle !== undefined && (
+        <Box as="p" className={styles.subtitle}>
+          <RichTextView text={card.subtitle} />
+        </Box>
+      )}
 
-      <Separator />
+      {card.meta.length > 0 && (
+        <StatBlock fields={card.meta} typeface={typeface} />
+      )}
 
       <Box className={styles.body}>
         {card.body.map((block, index) => (
@@ -101,16 +147,13 @@ export function CardFace({
       </Box>
 
       {card.footer !== undefined && (
-        <>
-          <Separator />
-          <ul className={styles.footer}>
-            {card.footer.map((entry, index) => (
-              <li key={index} className={styles.footerItem}>
-                <RichTextView text={entry} />
-              </li>
-            ))}
-          </ul>
-        </>
+        <ul className={styles.footer}>
+          {card.footer.map((entry, index) => (
+            <li key={index} className={styles.footerItem}>
+              <RichTextView text={entry} />
+            </li>
+          ))}
+        </ul>
       )}
     </article>
   );

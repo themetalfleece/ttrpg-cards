@@ -7,6 +7,23 @@
  */
 export const HEADING = /^\s{0,3}(#{1,6})\s+(.*?)(?:\s+#+)?\s*$/;
 
+/**
+ * A row of a table, which is a line fenced by pipes.
+ *
+ * The leading pipe is what is required. A sentence can easily contain one, and
+ * one that opens with it is a table row in every document that has tables.
+ */
+export const TABLE_ROW = /^\s{0,3}\|.*\|?\s*$/;
+
+/**
+ * The row under a table's headings, which sets the columns rather than saying
+ * anything. It never reaches the card.
+ */
+export const TABLE_ALIGNMENT = /^[\s|:-]*-[\s|:-]*$/;
+
+/** What a table row is divided into cells on. */
+export const TABLE_CELL_SEPARATOR = "|";
+
 /** A rule drawn across the page, in any of the three ways it is written. */
 export const DIVIDER = /^\s*(?:-{3,}|_{3,}|\*{3,})\s*$/;
 
@@ -126,6 +143,23 @@ export const RANK_NUMBER = /\d+/;
  * number in it is part of what it is saying rather than a rank.
  */
 export const RANK_LINE_MAX_WORDS = 4;
+
+/**
+ * Ranks a document names in a word, and the glyph each one puts in the corner.
+ *
+ * Most rank lines carry a numeral, and those need nothing here. A document
+ * that names its lowest rank instead writes it as a word, at either end of
+ * the line, and the line says nothing else a numeral could be read from.
+ *
+ * A letter rather than the numeral the rank would be: a `0` in the corner of
+ * a card reads as a quantity of nothing rather than as a rank.
+ */
+export const NAMED_RANK_BADGES: Readonly<Record<string, string>> = {
+  cantrip: "C",
+};
+
+/** Punctuation a rank word may be written with, which is not part of it. */
+export const NAMED_RANK_EDGES = /[^a-z]/g;
 
 /** How far into the line the number may be and still be the rank. */
 export const RANK_NUMBER_WITHIN = 2;

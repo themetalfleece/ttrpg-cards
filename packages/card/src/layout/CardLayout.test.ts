@@ -9,7 +9,10 @@ import {
   CARD_TEXT_SIZES,
   DEFAULT_CARD_TEXT_SIZE,
 } from "./layout.constants";
-import type { CardLayoutSettings } from "./layout.types";
+import type {
+  CardLayoutSettings,
+  CardTextSizeName,
+} from "./layout.types";
 
 /** A layout with round numbers, for reading the arithmetic off the test. */
 const plainLayout: CardLayoutSettings = {
@@ -142,6 +145,29 @@ describe("CARD_TEXT_SIZES", () => {
       expect(
         CardLayout.fromPreset({ textSize: size.id }).fontSizeRange,
       ).toEqual(CARD_TEXT_SIZE_PRESETS[size.id]);
+    }
+  });
+
+  /*
+   * Asking for smaller type buys tighter margins with it, so the two pull the
+   * same way instead of the blank eating the room the smaller type just won.
+   */
+  it("brings the margins in with the text size", () => {
+    const marginsAt = (textSize: CardTextSizeName) =>
+      CardLayout.fromPreset({ textSize }).margins.topMillimetres;
+
+    expect(marginsAt("small")).toBeLessThan(marginsAt("medium"));
+    expect(marginsAt("medium")).toBeLessThan(marginsAt("large"));
+  });
+
+  // The preset states the blank a card wants, and the middle setting is what
+  // states it at: a scale has to leave one setting reading the number as given.
+  it("gives the middle setting the margins the preset declares", () => {
+    for (const size of CARD_SIZES) {
+      expect(
+        CardLayout.fromPreset({ preset: size.id, textSize: "medium" })
+          .margins,
+      ).toEqual(CARD_LAYOUT_PRESETS[size.id].margins);
     }
   });
 

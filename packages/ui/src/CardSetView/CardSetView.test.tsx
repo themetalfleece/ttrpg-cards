@@ -295,6 +295,71 @@ describe("CardSetView", () => {
     unmount();
   });
 
+  // The rule the old one-size-per-set behaviour is gone for: a continuation
+  // carrying two sentences was set at the floor in a mostly empty card.
+  it("sets each card of a split at the size its own content allows", async () => {
+    stubResizeObserver();
+    stubRectangles();
+
+    const { cards, unmount } = await renderSet({
+      card: overflowingCard,
+    });
+    const sizes = cards.map((card) =>
+      declared(card, "--card-font-size"),
+    );
+    const [first, second] = sizes;
+
+    expect(cards).toHaveLength(2);
+    expect(first).toBeGreaterThanOrEqual(
+      layout.fontSizeRange.minimumMillimetres,
+    );
+    // The continuation holds less, so it is set larger than the card that
+    // filled up. Both are its own answer rather than one shared by the set.
+    expect(second).toBeGreaterThan(first ?? 0);
+    unmount();
+  });
+
+  // The other half of that trade: the bodies may differ, and the chrome may
+  // not, or two cards of one entry stop reading as a pair.
+  it("holds the chrome at the same size on every card of a set", async () => {
+    stubResizeObserver();
+    stubRectangles();
+
+    const { cards, unmount } = await renderSet({
+      card: overflowingCard,
+    });
+    const chrome = cards.map((card) =>
+      declared(card, "--card-font-size-chrome"),
+    );
+
+    expect(new Set(chrome).size).toBe(1);
+    expect(chrome[0]).toBe(layout.fontSizeRange.maximumMillimetres);
+    unmount();
+  });
+
+  /*
+   * The refit changes type size and nothing else. The split is settled at the
+   * floor before any card is sized, so growing one cannot pull a sentence back
+   * from the card after it: the ends of the entry stay on the cards the split
+   * put them on, and each still appears once.
+   */
+  it("leaves the split where it was, whatever each card refits to", async () => {
+    stubResizeObserver();
+    stubRectangles();
+
+    const { cards, unmount } = await renderSet({
+      card: overflowingCard,
+    });
+    const [opening, closing] = ends(overflowingCard);
+    const [first, last] = [cards[0], cards.at(-1)];
+
+    expect(first?.textContent).toContain(opening);
+    expect(first?.textContent).not.toContain(closing);
+    expect(last?.textContent).toContain(closing);
+    expect(occurrences(textOf(cards), opening)).toBe(1);
+    unmount();
+  });
+
   it("renders sample cards the model accepts", () => {
     const cards = Object.values(setViewFixtures);
 

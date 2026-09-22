@@ -2,6 +2,7 @@ import type {
   Card,
   CardLayout,
   CardThemeId,
+  CardTypefaceId,
 } from "@ttrpg-cards/card";
 
 import type { FaceCountReport } from "../CardPage.types";
@@ -14,10 +15,14 @@ export interface CardPageEntryProps {
   layout: CardLayout;
   /** The colour theme it is drawn in. */
   theme?: CardThemeId | undefined;
+  /** The faces it is set in, which decide where its split falls. */
+  typeface?: CardTypefaceId | undefined;
+  /** Which of the entry's cards to draw, counted from zero. */
+  from: number;
+  /** How many of them, which is what the sheet had room for. */
+  count: number;
   /** Told how many cards the entry turned out to be. */
   onFaceCount: (report: FaceCountReport) => void;
-  /** Passed through for a consumer that positions the entry. */
-  className?: string | undefined;
 }
 
 /** What reporting an entry's cost needs. */
@@ -26,6 +31,8 @@ export interface UseReportedFaceCountOptions {
   cardId: string;
   /** How many cards it turned out to be. */
   faceCount: number;
+  /** Whether that came from a measurement or is standing in for one. */
+  measured: boolean;
   /** Told the answer. Has to be stable, or the report repeats forever. */
   onFaceCount: (report: FaceCountReport) => void;
 }

@@ -26,10 +26,13 @@
   --color-accent: #7a4b2a;
   --color-accent-contrast: #ffffff;
   --color-focus-ring: #2b6cb0;
-  /* Paper, which is white and stays white: it is the one colour here that is
-     a physical fact rather than a choice, so the dark override below leaves
-     it alone. */
+  /* Paper, and the marks made on it. White is a physical fact rather than a
+     choice, so none of these follow the dark override below: a sheet is the
+     thing being made rather than part of the app's surface, and it is white at
+     midnight for the same reason the printed one is. */
   --color-paper: #ffffff;
+  --color-paper-edge: #d9d4c8;
+  --color-paper-text-muted: #5f5a4e;
 
   /* Spacing: a 4px scale, expressed in rem so it tracks the root font size. */
   --space-1: 0.25rem;

@@ -16,6 +16,11 @@ import type {
  * Left out, it starts at the top of the layout's range, which is what a caller
  * that does not measure should be showing.
  *
+ * The chrome is set from the top of the range instead, whatever the body
+ * settled at. That is the size the reader asked for, and holding the band, the
+ * labels and the footer to it is what lets two cards of one entry carry
+ * different amounts of text and still read as a pair.
+ *
  * The bottom of the range comes too, as the floor the type scale clamps to.
  * A region set smaller than the body is a ratio of it, and a ratio cannot
  * hold a floor, because it moves with what it multiplies. Legibility does not
@@ -49,6 +54,9 @@ export function cardFaceStyle({
     "--card-font-size": millimetres(fontSize),
     "--card-font-size-minimum": millimetres(
       fontSizeRange.minimumMillimetres,
+    ),
+    "--card-font-size-chrome": millimetres(
+      fontSizeRange.maximumMillimetres,
     ),
   };
 }

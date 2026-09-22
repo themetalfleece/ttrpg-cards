@@ -21,16 +21,20 @@ import type {
  * How large the type may be is not here: that is a reader's choice rather than
  * a property of the box, so it lives in {@link CARD_TEXT_SIZE_PRESETS} and the
  * two are combined by {@link CardLayout.fromPreset}.
+ *
+ * The margins a preset declares are the ones a card carries at the middle text
+ * size. Which margin a reader actually gets also depends on how large they
+ * asked for the type to be set, which is {@link CARD_TEXT_SIZE_MARGIN_SCALES}.
  */
 export const CARD_LAYOUT_PRESETS = {
   /** Small enough to hold a stack of in one hand, and to sleeve two up. */
   mini: {
     size: { widthMillimetres: 44, heightMillimetres: 68 },
     margins: {
-      topMillimetres: 3,
-      rightMillimetres: 3,
-      bottomMillimetres: 3,
-      leftMillimetres: 3,
+      topMillimetres: 2,
+      rightMillimetres: 2,
+      bottomMillimetres: 2,
+      leftMillimetres: 2,
     },
   },
 
@@ -41,10 +45,10 @@ export const CARD_LAYOUT_PRESETS = {
   standard: {
     size: { widthMillimetres: 63, heightMillimetres: 88 },
     margins: {
-      topMillimetres: 4,
-      rightMillimetres: 4,
-      bottomMillimetres: 4,
-      leftMillimetres: 4,
+      topMillimetres: 2.6,
+      rightMillimetres: 2.6,
+      bottomMillimetres: 2.6,
+      leftMillimetres: 2.6,
     },
   },
 
@@ -52,10 +56,10 @@ export const CARD_LAYOUT_PRESETS = {
   large: {
     size: { widthMillimetres: 89, heightMillimetres: 127 },
     margins: {
-      topMillimetres: 6,
-      rightMillimetres: 6,
-      bottomMillimetres: 6,
-      leftMillimetres: 6,
+      topMillimetres: 3.6,
+      rightMillimetres: 3.6,
+      bottomMillimetres: 3.6,
+      leftMillimetres: 3.6,
     },
   },
 } as const;
@@ -116,6 +120,25 @@ export const CARD_TEXT_SIZE_PRESETS = {
   medium: { minimumMillimetres: 2.8, maximumMillimetres: 4 },
   large: { minimumMillimetres: 3.3, maximumMillimetres: 4.7 },
 } as const satisfies Record<string, CardFontSizeRange>;
+
+/**
+ * How much of a size preset's margin each text setting keeps.
+ *
+ * Asking for smaller type buys tighter margins as well, so the two pull the
+ * same way instead of the blank eating what the smaller type just won. It is a
+ * scale rather than a measurement because the margin belongs to the card size:
+ * a mini card and a quarter sheet do not want the same blank, and they do want
+ * the same relationship between type size and blank.
+ *
+ * Kept beside the presets rather than inside them for the reason the names
+ * are: the layout schema rejects a field it does not know, so a preset
+ * carrying one would fail its own validation.
+ */
+export const CARD_TEXT_SIZE_MARGIN_SCALES = {
+  small: 0.85,
+  medium: 1,
+  large: 1.15,
+} as const satisfies Record<CardTextSizeName, number>;
 
 /** What a picker calls each text size, kept beside the presets as sizes are. */
 const TEXT_SIZE_NAMES = {

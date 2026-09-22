@@ -1,4 +1,8 @@
-import { CARD_BLOCK_KINDS, type Card } from "@ttrpg-cards/card";
+import {
+  CARD_BLOCK_KINDS,
+  CardModel,
+  type Card,
+} from "@ttrpg-cards/card";
 import { RichText } from "@ttrpg-cards/text";
 import { describe, expect, it } from "vitest";
 
@@ -22,6 +26,11 @@ function onlyCard(source: string): Card {
   expect(rest).toHaveLength(0);
 
   return card;
+}
+
+/** The stat block values a card carries, as plain words. */
+function valuesOf(card: Card): string[] {
+  return card.meta.map((field) => RichText.plain(field.value));
 }
 
 describe("MarkdownDocument", () => {
@@ -370,6 +379,235 @@ describe("MarkdownDocument", () => {
         RichText.of("A ward against the dark"),
       );
       expect(card.footer).toBeUndefined();
+    });
+  });
+
+  // A stat block cell is a quarter of a card wide. A document is written for
+  // a page, so what it states has to be set to fit what it is being put on,
+  // and a reader's own document gets the same treatment as a bundled one.
+  describe("fitting a stat block to the card", () => {
+    /** A stat block stating one field beside a plain one, as a document. */
+    function statBlock(label: string, value: string): string {
+      return [
+        "# Ward",
+        "",
+        "**Range:** Self",
+        `**${label}:** ${value}`,
+        "",
+      ].join("\n");
+    }
+
+    it("sets a value too long for its cell shorter", () => {
+      const card = onlyCard(statBlock("Duration", "Instantaneous"));
+
+      expect(valuesOf(card)).toEqual(["Self", "Instant"]);
+    });
+
+    it("names a held duration once, in place of the up to it implies", () => {
+      const card = onlyCard(
+        statBlock("Duration", "Concentration, up to 1 minute"),
+      );
+
+      expect(valuesOf(card)).toEqual(["Self", "Conc. 1 minute"]);
+    });
+
+    // Prose in a cell pushes the strip down the card and takes the room off
+    // the body, which is where prose belongs and where a reader looks for it.
+    it("puts prose a cell cannot hold at the end of the body", () => {
+      const card = onlyCard(
+        [
+          statBlock(
+            "Components",
+            "V, S, M (a twig struck by lightning)",
+          ),
+          "The light holds.",
+          "",
+        ].join("\n"),
+      );
+
+      expect(valuesOf(card)).toEqual(["Self", "V, S, M"]);
+      expect(card.body).toHaveLength(2);
+      expect(card.body[0]?.kind).toBe(CARD_BLOCK_KINDS.paragraph);
+      expect(card.body[1]).toEqual({
+        kind: CARD_BLOCK_KINDS.callout,
+        label: RichText.of("Material"),
+        text: RichText.of("A twig struck by lightning."),
+      });
+    });
+
+    // Short or long, a material is a thing the caster holds rather than a
+    // qualification of the letters, so both read in the same place.
+    it("puts a short material at the end of the body as well", () => {
+      const card = onlyCard(
+        statBlock("Components", "S, M (a silver pin)"),
+      );
+
+      expect(valuesOf(card)).toEqual(["Self", "S, M"]);
+      expect(card.body).toEqual([
+        {
+          kind: CARD_BLOCK_KINDS.callout,
+          label: RichText.of("Material"),
+          text: RichText.of("A silver pin."),
+        },
+      ]);
+    });
+
+    it("leaves a bracket short enough to read as part of the value", () => {
+      const card = onlyCard(
+        statBlock("Casting Time", "1 action (ritual)"),
+      );
+
+      expect(valuesOf(card)).toEqual(["Self", "1 action (ritual)"]);
+      expect(card.body).toEqual([]);
+    });
+
+    // Rewriting a value means reading it as plain words, and a value a reader
+    // marked up is not only words. Theirs is left exactly as they set it.
+    it("leaves a value the reader marked up alone", () => {
+      const card = onlyCard(statBlock("Duration", "*Instantaneous*"));
+
+      expect(valuesOf(card)).toEqual(["Self", "Instantaneous"]);
+      expect(card.body).toEqual([]);
+    });
+  });
+
+  // A document that captions a table writes the caption as a heading too, and
+  // a heading inside a card is part of it rather than the start of another.
+  describe("a heading deeper than the cards are written at", () => {
+    const withCaption = [
+      "#### Ward",
+      "",
+      "**Range:** Self",
+      "**Duration:** 1 minute",
+      "",
+      "The light holds.",
+      "",
+      "##### What the lantern shows",
+      "| Roll | Effect |",
+      "|:----:|--------|",
+      "| 1 | The light fails |",
+      "| 2 | It holds |",
+      "",
+    ].join("\n");
+
+    it("keeps it on the card it sits in rather than starting another", () => {
+      expect(cardsIn(withCaption)).toHaveLength(1);
+    });
+
+    it("sets it as a caption over what it names", () => {
+      const card = onlyCard(withCaption);
+      const caption = card.body[1];
+
+      if (caption?.kind !== CARD_BLOCK_KINDS.paragraph) {
+        throw new Error("The card carried no caption");
+      }
+
+      expect(RichText.plain(caption.text)).toBe(
+        "What the lantern shows",
+      );
+      expect(caption.text[0]?.marks).toEqual(["strong"]);
+    });
+
+    // The other half of the same rule, and the reason level alone cannot
+    // decide it: a document that nests its cards under a title has a
+    // shallower heading that is not a card.
+    it("still reads cards nested under a title of their own", () => {
+      const cards = cardsIn(
+        [
+          "# My Cards",
+          "",
+          "## One",
+          "",
+          "The first.",
+          "",
+          "## Two",
+          "",
+          "The second.",
+          "",
+        ].join("\n"),
+      );
+
+      expect(cards.map((card) => RichText.plain(card.name))).toEqual([
+        "One",
+        "Two",
+      ]);
+    });
+
+    // And the shape that shows content alone cannot find the level: a title
+    // with a line under it carries content like any card does. What tells them
+    // apart is repetition, since cards come in runs and a title is one of a
+    // kind. Reading the whole document as a single card would be the worst
+    // answer available, because every card after the first would be body text
+    // on the one before it.
+    it("still reads cards nested under a title that says something", () => {
+      const cards = cardsIn(
+        [
+          "# My Cards",
+          "",
+          "Everything I have written down so far.",
+          "",
+          "## One",
+          "",
+          "The first.",
+          "",
+          "## Two",
+          "",
+          "The second.",
+          "",
+        ].join("\n"),
+      );
+
+      expect(
+        cards.map((card) => RichText.plain(card.name)),
+      ).toContain("One");
+      expect(
+        cards.map((card) => RichText.plain(card.name)),
+      ).toContain("Two");
+    });
+  });
+
+  // A card has no grid, so a table is read as a line naming it and a line per
+  // row. How that is arranged is one rule in the card model; all the parser
+  // does is recognise the rows.
+  describe("a table written in pipes", () => {
+    const withTable = [
+      "## Ward",
+      "",
+      "**Range:** Self",
+      "**Duration:** 1 minute",
+      "",
+      "| Roll | Effect |",
+      "|:----:|--------|",
+      "| 1 | The light fails |",
+      "| 2 | It holds |",
+      "",
+    ].join("\n");
+
+    it("reads the rows rather than printing the pipes", () => {
+      const card = onlyCard(withTable);
+      const written = card.body.flatMap((block) => {
+        if (block.kind === CARD_BLOCK_KINDS.list) {
+          return block.items.map((item) => RichText.plain(item));
+        }
+
+        return block.kind === CARD_BLOCK_KINDS.paragraph
+          ? [RichText.plain(block.text)]
+          : [];
+      });
+
+      expect(written).toEqual([
+        "Roll / Effect",
+        "1: The light fails",
+        "2: It holds",
+      ]);
+    });
+
+    it("leaves out the row that only sets the columns", () => {
+      expect(
+        onlyCard(withTable).body.some((block) =>
+          CardModel.blockText(block).includes("---"),
+        ),
+      ).toBe(false);
     });
   });
 

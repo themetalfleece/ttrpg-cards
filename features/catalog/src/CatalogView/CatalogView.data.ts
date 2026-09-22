@@ -12,15 +12,37 @@ import type { CatalogViewStyle } from "./CatalogView.types";
 const SHOWN_CATALOG = BUNDLED_CATALOGS[0];
 
 /**
- * Everything the page can lay out, in catalog order.
+ * How many bundled cards the page opens on.
  *
- * All of it, not a page worth: how many of these go on a sheet depends on how
- * many cards each turns out to be, which is the sheet's own job to work out.
- * Mapped once by the catalog itself, so a card keeps its identity across a
- * re-render and is not re-measured for having been rebuilt.
+ * The bundled catalog is the sample the app shows before the reader brings
+ * anything, and a sample is what it stays: all of it is around forty sheets
+ * nobody asked to print, and every card on them has to be measured before any
+ * of it could be. Enough here to fill more than one sheet, so the reader can
+ * see that a set runs onto the next.
+ *
+ * Nothing the reader brings is ever trimmed. What they hand over is what they
+ * are printing, and all of it is laid out however many sheets that takes. That
+ * costs what it costs, and the cost is known rather than guessed at: three
+ * hundred cards is about two seconds to the first sheet and about eighteen to
+ * the last. The sheets arrive a few at a time so there is something to watch
+ * and the page answers a scroll throughout, and a print does not wait for the
+ * rest of them, so this is a wait to read rather than a wait to print.
  */
-export const CATALOG_CARDS: readonly Card[] =
-  SHOWN_CATALOG?.cards ?? [];
+const CATALOG_PREVIEW_COUNT = 24;
+
+/** How many cards the bundled catalog holds in total, sample or not. */
+export const CATALOG_CARD_COUNT: number =
+  SHOWN_CATALOG?.cards.length ?? 0;
+
+/**
+ * The bundled cards the page lays out, in catalog order.
+ *
+ * Sliced once at module scope rather than per render, so a card keeps its
+ * identity across a re-render and is not re-measured for having been rebuilt.
+ */
+export const CATALOG_CARDS: readonly Card[] = (
+  SHOWN_CATALOG?.cards ?? []
+).slice(0, CATALOG_PREVIEW_COUNT);
 
 const ATTRIBUTION = SHOWN_CATALOG?.attribution;
 

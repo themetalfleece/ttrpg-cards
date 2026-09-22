@@ -28,7 +28,20 @@ describe("cardFaceStyle", () => {
       "--card-margin-left": "4mm",
       "--card-font-size": "6mm",
       "--card-font-size-minimum": "5mm",
+      "--card-font-size-chrome": "6mm",
     });
+  });
+
+  // The whole point of the split: what the reader reads gives way and the
+  // chrome does not, so two cards of one entry still read as a pair.
+  it("holds the chrome at the size the reader picked whatever the body settled at", () => {
+    const style = cardFaceStyle({
+      layout: distinctLayout,
+      fontSizeMillimetres: 5.25,
+    });
+
+    expect(style["--card-font-size"]).toBe("5.25mm");
+    expect(style["--card-font-size-chrome"]).toBe("6mm");
   });
 
   it("carries the bottom of the range as the floor the type scale clamps to", () => {

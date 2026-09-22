@@ -1,5 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { CARD_THEMES, CardLayout } from "@ttrpg-cards/card";
+import {
+  CARD_THEMES,
+  CARD_TYPEFACES,
+  CardLayout,
+} from "@ttrpg-cards/card";
 import { Box } from "@ttrpg-cards/ui/Box";
 import type { CSSProperties } from "react";
 
@@ -10,6 +14,7 @@ import {
   minimalCard,
   unbreakableWordCard,
   longBodyCard,
+  longNameCard,
   spellShapedCard,
 } from "./CardFace.fixtures";
 
@@ -26,7 +31,7 @@ const smallestTypeLayout = defaultLayout.with({
   },
 });
 
-/** The gallery below, laid out in theme values so it hardcodes nothing. */
+/** The two galleries below, laid out in theme values so they hardcode nothing. */
 const THEME_GALLERY_STYLE: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
@@ -54,6 +59,10 @@ const meta = {
     theme: {
       control: "select",
       options: CARD_THEMES.map((theme) => theme.id),
+    },
+    typeface: {
+      control: "select",
+      options: CARD_TYPEFACES.map((typeface) => typeface.id),
     },
   },
 } satisfies Meta<typeof CardFace>;
@@ -158,4 +167,36 @@ export const Themes: Story = {
       ))}
     </Box>
   ),
+};
+
+/**
+ * Every pairing of faces the app ships, side by side.
+ *
+ * Read from the registry for the same reason the themes are. This is the one
+ * to look at when picking: a display face is chosen by how the title reads and
+ * a body face by how much of the card is left once the prose is set in it, and
+ * neither is a decision anyone should make from a specimen sheet.
+ */
+export const Typefaces: Story = {
+  args: { card: spellShapedCard },
+  render: (args) => (
+    <Box style={THEME_GALLERY_STYLE}>
+      {CARD_TYPEFACES.map((typeface) => (
+        <Box key={typeface.id} style={THEME_SWATCH_STYLE}>
+          <Box as="span" style={THEME_LABEL_STYLE}>
+            {typeface.name}
+          </Box>
+          <CardFace {...args} typeface={typeface.id} />
+        </Box>
+      ))}
+    </Box>
+  ),
+};
+
+/**
+ * A name longer than the band, which steps down until it fits rather than
+ * being cut off. Past the smallest step it takes a second line instead.
+ */
+export const LongName: Story = {
+  args: { card: longNameCard },
 };

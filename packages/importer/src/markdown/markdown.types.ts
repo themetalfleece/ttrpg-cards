@@ -21,7 +21,8 @@ export interface ImportIssue {
 }
 
 /** How the lines of a section group before anything is decided about them. */
-export type MarkdownBlockKind = "quote" | "bullets" | "paragraph";
+export type MarkdownBlockKind =
+  "quote" | "bullets" | "paragraph" | "heading" | "table";
 
 /** A run of lines separated from its neighbours by a blank line or a rule. */
 export interface MarkdownBlock {

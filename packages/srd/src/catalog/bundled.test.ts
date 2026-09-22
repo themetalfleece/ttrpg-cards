@@ -1,8 +1,10 @@
-import { CardModel } from "@ttrpg-cards/card";
+import { CARD_BLOCK_KINDS, CardModel } from "@ttrpg-cards/card";
+import { RichText } from "@ttrpg-cards/text";
 import { describe, expect, it } from "vitest";
 
 import { BUNDLED_CATALOGS, bundledCatalog } from "./bundled";
 import { Catalog } from "./Catalog";
+import { META_LABELS } from "./catalog.constants";
 import srd51 from "./data/srd-5.1.json";
 import srd521 from "./data/srd-5.2.1.json";
 
@@ -103,6 +105,49 @@ describe("BUNDLED_CATALOGS", () => {
           url: attribution?.sourceUrl,
           license: attribution?.license.name,
         });
+      }
+    }
+  });
+
+  // The mapping writes a material where the document writes it, inside the
+  // components value, and one rule in the card model moves it to the body for
+  // every source. Walking the whole corpus is what says that rule reached all
+  // of them: a bracket left in a cell is prose in a cell a quarter of a card
+  // wide, which is the shape it exists to prevent.
+  it("moves every material out of the strip and into the body", () => {
+    for (const catalog of BUNDLED_CATALOGS) {
+      const cardsById = new Map(
+        catalog.cards.map((card) => [card.id, card]),
+      );
+      const withMaterial = catalog.entries.filter(
+        (entry) => entry.components.materialText !== undefined,
+      );
+
+      expect(withMaterial.length).toBeGreaterThan(0);
+
+      for (const entry of withMaterial) {
+        const card = cardsById.get(entry.id);
+        const components = card?.meta.find(
+          (field) =>
+            RichText.plain(field.label) === META_LABELS.components,
+        );
+        const closing = card?.body.at(-1);
+
+        if (components === undefined || closing === undefined) {
+          throw new Error(`${entry.id} has no components or no body`);
+        }
+
+        // The cell keeps the letters and nothing else.
+        expect(RichText.plain(components.value)).not.toContain("(");
+
+        // And what it was holding is the last thing the body says.
+        expect(closing.kind).toBe(CARD_BLOCK_KINDS.callout);
+        expect(CardModel.blockText(closing).toLowerCase()).toContain(
+          (entry.components.materialText ?? "")
+            .trim()
+            .replace(/[.!?]$/, "")
+            .toLowerCase(),
+        );
       }
     }
   });

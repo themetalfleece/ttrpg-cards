@@ -12,13 +12,16 @@ export const ENTRY_BLOCK_TYPES = {
  * The labels the mapping writes into a card's stat block, in the order they
  * are laid out. This is where the source document's vocabulary stops: the card
  * model carries them as data, so nothing downstream is named for them.
+ *
+ * There is no label here for the material. A material is written inside the
+ * components value, the way the document writes it, and what a card calls the
+ * block it ends up in is the card model's to say rather than this mapping's.
  */
 export const META_LABELS = {
   castingTime: "Casting Time",
   range: "Range",
   components: "Components",
   duration: "Duration",
-  material: "Material",
 } as const;
 
 /** The letters the source prints for the components an entry needs. */
@@ -49,6 +52,10 @@ export const LEVEL_NAME_PREFIX = "Level";
 /**
  * Put back in front of a duration the extraction lifted it out of, so the stat
  * block reads the way the source document prints it.
+ *
+ * What a narrow cell does to that wording is decided downstream, by the one
+ * rule in `@ttrpg-cards/card` that a reader's own document goes through as
+ * well.
  */
 export const CONCENTRATION_PREFIX = "Concentration, ";
 

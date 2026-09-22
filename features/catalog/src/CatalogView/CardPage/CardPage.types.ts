@@ -2,8 +2,12 @@ import type {
   Card,
   CardLayout,
   CardThemeId,
+  CardTypefaceId,
 } from "@ttrpg-cards/card";
-import type { SheetLayout } from "@ttrpg-cards/printer";
+import type {
+  SheetLayout,
+  SheetPlacement,
+} from "@ttrpg-cards/printer";
 
 /** Cards laid out on one sheet. */
 export interface CardPageProps {
@@ -22,6 +26,18 @@ export interface CardPageProps {
   sheet: SheetLayout;
   /** The colour theme every card on the page is drawn in. */
   theme?: CardThemeId | undefined;
+  /**
+   * The pairing of faces every card on the page is set in. It reaches the
+   * measurement as well as the render, because how wide the text runs is what
+   * decides whether an entry takes a second card.
+   */
+  typeface?: CardTypefaceId | undefined;
+  /**
+   * Told whether the page is finished: every sheet up and every measurement
+   * landed. What prints is the DOM as it stands, so anything that starts a
+   * print has to know whether the page is ready to be one.
+   */
+  onPrintableChange?: ((printable: boolean) => void) | undefined;
   /** Passed through for a consumer that positions the page. */
   className?: string | undefined;
 }
@@ -44,26 +60,39 @@ export type CardPageStyle = Readonly<
 
 /** What an entry turned out to cost the sheet. */
 export interface FaceCountReport {
-  /** The entry that was measured. */
+  /** The entry that was counted. */
   readonly cardId: string;
   /** How many cards it turned out to be. */
   readonly faceCount: number;
+  /**
+   * Whether that came from a measurement.
+   *
+   * False while the entry is standing in as the one card it is at least,
+   * which is what a fresh mount draws before its own measurement lands. The
+   * difference decides whether a smaller count is believed.
+   */
+  readonly measured: boolean;
 }
 
 /** What filling a sheet needs. */
 export interface UsePageFillOptions {
   /** The entries to draw from, in reading order. */
   cards: readonly Card[];
-  /** The geometry they are measured against. A new one starts the count over. */
+  /** The geometry they are measured against. */
   layout: CardLayout;
-  /** The sheet they go on, which is what decides how many of them do. */
+  /** The sheet they go on, which is what decides how many of them each holds. */
   sheet: SheetLayout;
 }
 
-/** A sheet filled as far as it goes, and the way entries report their cost. */
+/** The sheets the entries fill, and the way entries report their cost. */
 export interface PageFill {
-  /** The entries that fit, in reading order. */
-  readonly shown: readonly Card[];
+  /** One run of cards per sheet, in reading order. */
+  readonly sheets: readonly (readonly SheetPlacement<Card>[])[];
   /** Told what an entry turned out to cost. Stable, so an entry reports once. */
   readonly reportFaceCount: (report: FaceCountReport) => void;
+  /**
+   * Whether the sheets have stopped moving. False again the moment a
+   * measurement lands, so it gates rather than only announcing once.
+   */
+  readonly settled: boolean;
 }

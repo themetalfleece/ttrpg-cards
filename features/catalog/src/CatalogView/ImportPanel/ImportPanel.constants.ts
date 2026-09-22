@@ -51,6 +51,19 @@ export function cardsReadSummary(count: number): string {
   return `Showing ${count} ${cards} you brought. Add another document to keep building the set.`;
 }
 
+/**
+ * How the panel says the bundled cards are a sample.
+ *
+ * Named so the reader knows the page is not everything the app ships and that
+ * bringing their own is what fills it with what they want.
+ */
+export function bundledSampleSummary(options: {
+  shown: number;
+  total: number;
+}): string {
+  return `Showing ${options.shown} of ${options.total} bundled cards as a sample. Add a document of your own to lay out a set instead.`;
+}
+
 /** How the panel introduces the parts it could not read. */
 export function unreadSummary(count: number): string {
   const parts = count === 1 ? "part" : "parts";

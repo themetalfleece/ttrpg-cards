@@ -2,6 +2,11 @@
  * The body blocks. Spacing and rule weight come from the card these sit on,
  * which declares them against its own live font size, so a block set out here
  * scales with the card without knowing a measurement.
+ *
+ * The spacing is the body's rather than the chrome's: a card that had to set
+ * its prose small would otherwise keep full size indents and gaps, spending on
+ * blank the room the smaller type just won. The rule weight stays the chrome's,
+ * because a hairline that thinned with the type would stop being drawn.
  */
 .paragraph {
   margin: 0;
@@ -10,9 +15,9 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: var(--card-space-tight);
+  gap: var(--card-body-space-tight);
   margin: 0;
-  padding-left: var(--card-space-loose);
+  padding-left: var(--card-body-space-loose);
 }
 
 .listItem {
@@ -22,8 +27,8 @@
 .callout {
   display: flex;
   flex-direction: column;
-  gap: var(--card-space-tight);
-  padding-left: var(--card-space-normal);
+  gap: var(--card-body-space-tight);
+  padding-left: var(--card-body-space-normal);
   border-left: var(--card-rule-width) solid var(--card-color-accent);
 }
 

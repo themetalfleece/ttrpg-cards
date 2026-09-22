@@ -49,12 +49,6 @@ const CARD_TEXT_PAIRS = [
   { text: "--card-color-text", on: "--card-color-surface" },
   { text: "--card-color-text-muted", on: "--card-color-surface" },
   { text: "--card-color-accent", on: "--card-color-surface" },
-  { text: "--card-color-text", on: "--card-color-surface-tinted" },
-  {
-    text: "--card-color-text-muted",
-    on: "--card-color-surface-tinted",
-  },
-  { text: "--card-color-accent", on: "--card-color-surface-tinted" },
   {
     text: "--card-color-badge-text",
     on: "--card-color-badge-surface",
@@ -67,6 +61,10 @@ const CARD_TEXT_PAIRS = [
  * between them stands out from both, which is the whole point: a theme that
  * separated its regions by hue alone would satisfy neither once the page
  * comes out of a mono laser printer.
+ *
+ * The card carries one fill and it is the position pill. Everywhere else both
+ * sides are the card's own surface, so the rule is the whole of what a reader
+ * has to see the boundary by and the fills contribute nothing.
  */
 interface RegionBoundary {
   /** What the boundary is, for the failure message. */
@@ -79,17 +77,24 @@ interface RegionBoundary {
 
 const CARD_REGION_BOUNDARIES: readonly RegionBoundary[] = [
   {
+    // The sheet, not the app's surface: a card is always on paper now, on a
+    // screen as much as on a printer.
     name: "the card against the page",
-    sides: ["--card-color-surface", "--color-surface"],
+    sides: ["--card-color-surface", "--color-paper"],
     rule: "--card-color-border",
   },
   {
-    name: "the stat block against the body",
-    sides: ["--card-color-surface-tinted", "--card-color-surface"],
+    name: "the property strip against the body",
+    sides: ["--card-color-surface", "--card-color-surface"],
     rule: "--card-color-border",
   },
   {
-    name: "the badge against the card",
+    name: "the band against the card",
+    sides: ["--card-color-surface", "--card-color-surface"],
+    rule: "--card-color-border",
+  },
+  {
+    name: "the position pill against the card",
     sides: ["--card-color-badge-surface", "--card-color-surface"],
   },
 ];
@@ -99,13 +104,6 @@ const MINIMUM_TEXT_CONTRAST = 4.5;
 
 /** WCAG's bar for a boundary that carries meaning without being text. */
 const MINIMUM_REGION_SEPARATION = 3;
-
-/**
- * How far the tinted region may sit from the plain one. A heavier fill would
- * read on screen and then drink ink and gray out flat on paper, so the tint
- * stays a tint and the rule around it is what separates the region.
- */
-const MAXIMUM_TINT_STEP = 1.5;
 
 /**
  * How light a card's fills have to be on paper.
@@ -125,7 +123,6 @@ const MINIMUM_PAPER_LUMINANCE = 0.6;
  */
 const CARD_SURFACE_ROLES: readonly CardColourRole[] = [
   "--card-color-surface",
-  "--card-color-surface-tinted",
 ];
 
 /** One rule of the stylesheet: what it matches, and what it declares. */
@@ -513,15 +510,6 @@ describe.each(CARD_THEMES)("the $name theme", ({ id }) => {
       },
     );
 
-    it("keeps the tinted region a tint rather than a fill", () => {
-      const step = contrast(
-        resolve("--card-color-surface", colours),
-        resolve("--card-color-surface-tinted", colours),
-      );
-
-      expect(step).toBeLessThanOrEqual(MAXIMUM_TINT_STEP);
-    });
-
     // Registered only where there is a floor, because a screen has none and a
     // test asserting a luminance above zero would be a test shaped like a lie.
     const floor = target.minimumSurfaceLuminance;
@@ -613,31 +601,53 @@ describe("the two stylesheets", () => {
   });
 });
 
-/** What the default theme sets body text in at one of the targets. */
-function defaultTextColourOn(target: Target): string {
-  return resolve(
-    "--card-color-text",
-    coloursOf(DEFAULT_CARD_THEME_ID, target),
+/** Every colour role of a theme, resolved, at one of the targets. */
+function cardColoursOn(
+  themeId: string,
+  target: Target,
+): Record<string, string> {
+  const colours = coloursOf(themeId, target);
+
+  return Object.fromEntries(
+    CARD_COLOUR_ROLES.map((role) => [role, resolve(role, colours)]),
   );
 }
 
 describe("the targets a card is read at", () => {
   // Without this the suite can pass by reading one target three times over,
-  // which is how the first version of it was wrong.
+  // which is how the first version of it was wrong. The document theme is what
+  // it is read off, because that one really does darken at night: the card's
+  // palettes no longer do, which is the next check.
   it("reads a dark screen apart from a light one", () => {
     expect(SECTIONS.length).toBeGreaterThan(1);
-    expect(defaultTextColourOn(DARK_SCREEN)).not.toBe(
-      defaultTextColourOn(LIGHT_SCREEN),
+    expect(
+      resolve(
+        "--color-surface",
+        coloursOf(DEFAULT_CARD_THEME_ID, DARK_SCREEN),
+      ),
+    ).not.toBe(
+      resolve(
+        "--color-surface",
+        coloursOf(DEFAULT_CARD_THEME_ID, LIGHT_SCREEN),
+      ),
     );
   });
 
-  // Paper gets the light screen's palette because the dark block is scoped to
-  // screens. Take that scope off and this fails, next to the luminance floor.
-  it("keeps the dark palette off paper", () => {
-    expect(defaultTextColourOn(PAPER)).toBe(
-      defaultTextColourOn(LIGHT_SCREEN),
-    );
-  });
+  // A card is paper wherever it is looked at. It sits on a white sheet at
+  // midnight and it is printed on white, so a palette that followed the
+  // desktop would be a dark rectangle on a white sheet and a page of ink out
+  // of the printer.
+  it.each(CARD_THEMES)(
+    "draws the $name theme the same at every one of them",
+    ({ id }) => {
+      expect(cardColoursOn(id, DARK_SCREEN)).toEqual(
+        cardColoursOn(id, LIGHT_SCREEN),
+      );
+      expect(cardColoursOn(id, PAPER)).toEqual(
+        cardColoursOn(id, LIGHT_SCREEN),
+      );
+    },
+  );
 
   /**
    * Where each media condition is drawn, pinned. The routing decides what

@@ -8,7 +8,11 @@ import {
   PAGE_SIZE_PRESETS,
   PAGE_SIZES,
 } from "./sheet.constants";
-import type { SheetItem, SheetLayoutSettings } from "./sheet.types";
+import type {
+  SheetItem,
+  SheetLayoutSettings,
+  SheetPlacement,
+} from "./sheet.types";
 
 /** Every sheet the records allow, which is what the closed sets are worth. */
 function everySheet(): SheetLayout[] {
@@ -233,11 +237,25 @@ describe("SheetLayout.gridInsetMillimetres", () => {
   });
 });
 
-describe("SheetLayout.fill", () => {
+describe("SheetLayout.paginate", () => {
   // A large card on the default sheet gives a capacity of four, which is
   // small enough to read the packing off the cases below.
   const layout = CardLayout.fromPreset({ preset: "large" });
   const sheet = SheetLayout.default();
+
+  /** Each sheet as the cards on it, written `id` or `id:from` past the first. */
+  const cardsOn = (
+    sheets: readonly (readonly SheetPlacement<SheetItem>[])[],
+  ): string[][] =>
+    sheets.map((placements) =>
+      placements.flatMap((placement) =>
+        Array.from({ length: placement.count }, (_unused, index) =>
+          placement.from + index === 0
+            ? placement.item.id
+            : `${placement.item.id}:${placement.from + index}`,
+        ),
+      ),
+    );
 
   it("holds four of these cards, which is what the cases below count against", () => {
     expect(sheet.capacityFor({ layout })).toBe(4);
@@ -245,13 +263,69 @@ describe("SheetLayout.fill", () => {
 
   it("counts an entry nothing has measured as the one card it is at least", () => {
     expect(
-      sheet.fill({ items: entries, layout, faceCounts: new Map() }),
-    ).toEqual(entries);
+      cardsOn(
+        sheet.paginate({
+          items: entries,
+          layout,
+          faceCounts: new Map(),
+        }),
+      ),
+    ).toEqual([["a", "b", "c", "d"]]);
   });
 
-  it("holds nothing on a sheet with no room at all", () => {
+  it("gives back a slot for every continuation an entry turned out to need", () => {
     expect(
-      sheet.fill({
+      cardsOn(
+        sheet.paginate({
+          items: entries,
+          layout,
+          faceCounts: new Map([["b", 2]]),
+        }),
+      ),
+    ).toEqual([["a", "b", "b:1", "c"], ["d"]]);
+  });
+
+  // The whole point of packing cards rather than entries. An entry whose
+  // cards will not all fit puts the ones that do in the room that is left,
+  // because a slot held open for a card that could not use it is paper spent
+  // on an adjacency the scissors take away anyway.
+  it("splits an entry across the boundary rather than leaving a gap", () => {
+    expect(
+      cardsOn(
+        sheet.paginate({
+          items: entries,
+          layout,
+          faceCounts: new Map([["b", 4]]),
+        }),
+      ),
+    ).toEqual([
+      ["a", "b", "b:1", "b:2"],
+      ["b:3", "c", "d"],
+    ]);
+  });
+
+  it("runs an entry larger than a whole sheet across as many as it needs", () => {
+    expect(
+      cardsOn(
+        sheet.paginate({
+          items: entries,
+          layout,
+          faceCounts: new Map([["b", 6]]),
+        }),
+      ),
+    ).toEqual([
+      ["a", "b", "b:1", "b:2"],
+      ["b:3", "b:4", "b:5", "c"],
+      ["d"],
+    ]);
+  });
+
+  // No room for a single card is not an arrangement to be found, so there is
+  // nothing to hand back and a consumer can say the one thing that is true
+  // instead of showing a run of overflowing sheets.
+  it("gives back no sheets at all when the card is larger than the paper", () => {
+    expect(
+      sheet.paginate({
         items: entries,
         layout: squareLayout(400),
         faceCounts: new Map(),
@@ -259,59 +333,71 @@ describe("SheetLayout.fill", () => {
     ).toEqual([]);
   });
 
-  it("gives back a slot for every continuation an entry turned out to need", () => {
-    const packed = sheet.fill({
-      items: entries,
-      layout,
-      faceCounts: new Map([["b", 2]]),
-    });
-
-    expect(packed.map((item) => item.id)).toEqual(["a", "b", "c"]);
-  });
-
-  // Reading order is the caller's, so an entry that will not fit ends the
-  // sheet rather than being stepped over for a smaller one behind it.
-  it("stops at the first entry that will not fit", () => {
-    const packed = sheet.fill({
-      items: entries,
-      layout,
-      faceCounts: new Map([["b", 4]]),
-    });
-
-    expect(packed.map((item) => item.id)).toEqual(["a"]);
-  });
-
-  it("holds nothing when the first entry is already too much", () => {
+  it("gives back no sheets when it is given no entries", () => {
     expect(
-      sheet.fill({
+      sheet.paginate({ items: [], layout, faceCounts: new Map() }),
+    ).toEqual([]);
+  });
+
+  it("loses no card and repeats none, however they pack", () => {
+    const sheets = sheet.paginate({
+      items: entries,
+      layout,
+      faceCounts: new Map([
+        ["a", 3],
+        ["c", 5],
+      ]),
+    });
+
+    expect(cardsOn(sheets).flat()).toEqual([
+      "a",
+      "a:1",
+      "a:2",
+      "b",
+      "c",
+      "c:1",
+      "c:2",
+      "c:3",
+      "c:4",
+      "d",
+    ]);
+  });
+
+  // Zero gaps is the whole promise, so it is asserted directly rather than
+  // read off one arrangement: every sheet but the last is full.
+  it("leaves no sheet but the last one short", () => {
+    const capacity = sheet.capacityFor({ layout });
+
+    for (const counts of [
+      new Map(),
+      new Map([["b", 2]]),
+      new Map([["b", 4]]),
+      new Map([
+        ["a", 3],
+        ["c", 5],
+      ]),
+      new Map([
+        ["a", 2],
+        ["b", 2],
+        ["c", 2],
+        ["d", 2],
+      ]),
+    ]) {
+      const sheets = sheet.paginate({
         items: entries,
         layout,
-        faceCounts: new Map([["a", 5]]),
-      }),
-    ).toEqual([]);
-  });
+        faceCounts: counts,
+      });
 
-  it("holds nothing when it is given nothing", () => {
-    expect(
-      sheet.fill({ items: [], layout, faceCounts: new Map() }),
-    ).toEqual([]);
-  });
+      for (const filled of sheets.slice(0, -1)) {
+        const cards = filled.reduce(
+          (total, placement) => total + placement.count,
+          0,
+        );
 
-  // A count only ever grows from one, so the run that fits only ever gets
-  // shorter. That is what stops a consumer flickering between two answers.
-  it("never grows as entries report what they cost", () => {
-    const before = sheet.fill({
-      items: entries,
-      layout,
-      faceCounts: new Map(),
-    });
-    const after = sheet.fill({
-      items: entries,
-      layout,
-      faceCounts: new Map([["a", 2]]),
-    });
-
-    expect(after.length).toBeLessThanOrEqual(before.length);
+        expect(cards).toBe(capacity);
+      }
+    }
   });
 });
 

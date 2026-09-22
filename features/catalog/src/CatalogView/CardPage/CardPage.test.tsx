@@ -33,12 +33,64 @@ function stubResizeObserver(): void {
   });
 }
 
+/**
+ * A `matchMedia` that answers for print and can be told the answer changed,
+ * standing in for the browser that has the query and not the event.
+ */
+function stubPrintMedia(): { startPrinting: () => void } {
+  const listeners: ((event: MediaQueryListEvent) => void)[] = [];
+  const original = window.matchMedia;
+
+  window.matchMedia = ((media: string) => ({
+    media,
+    matches: false,
+    addEventListener: (
+      _: string,
+      listener: (event: MediaQueryListEvent) => void,
+    ) => {
+      listeners.push(listener);
+    },
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    onchange: null,
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+
+  restores.push(() => {
+    window.matchMedia = original;
+  });
+
+  return {
+    startPrinting: () => {
+      for (const listener of listeners) {
+        listener({ matches: true } as MediaQueryListEvent);
+      }
+    },
+  };
+}
+
 /** A card carrying nothing but the name it is recognised by. */
 function entry(id: string): Card {
   return { id, name: [{ text: id }], meta: [], body: [] };
 }
 
 const entries: readonly Card[] = ["first", "second"].map(entry);
+
+/** More cards than one sheet holds, so the page has to stage them. */
+const manyEntries: readonly Card[] = Array.from(
+  { length: 20 },
+  (_, index) => entry(`card-${index + 1}`),
+);
+
+/** Every sheet currently on the page. */
+function sheetsOn(container: HTMLElement): HTMLElement[] {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'section[aria-label^="Card page"]',
+    ),
+  );
+}
 
 /** A card cut larger than any paper the app prints on. */
 const oversizedLayout = CardLayout.default().with({
@@ -63,6 +115,39 @@ async function renderPage(options: {
       <CardPage
         cards={options.cards ?? entries}
         layout={options.layout ?? CardLayout.default()}
+        sheet={SheetLayout.default()}
+      />,
+    );
+  });
+
+  restores.push(() => {
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  return container;
+}
+
+/**
+ * The page as it stands after the first commit and before a frame has gone by,
+ * which is what a reader sees first.
+ */
+function renderFirstFrame(cards: readonly Card[]): HTMLElement {
+  stubResizeObserver();
+
+  const container = document.createElement("div");
+
+  document.body.append(container);
+
+  const root = createRoot(container);
+
+  act(() => {
+    root.render(
+      <CardPage
+        cards={cards}
+        layout={CardLayout.default()}
         sheet={SheetLayout.default()}
       />,
     );
@@ -108,6 +193,52 @@ describe("CardPage", () => {
     const container = await renderPage({ cards: [] });
 
     expect(container.textContent).not.toContain(NOTHING_FITS);
+  });
+
+  // Every card on a sheet measures itself as it mounts, so a whole set in one
+  // commit is a locked tab and a blank page until the last of them is done.
+  it("puts the first sheet up before the rest of them", () => {
+    const container = renderFirstFrame(manyEntries);
+
+    expect(sheetsOn(container)).toHaveLength(1);
+  });
+
+  // And says how many are coming, rather than letting the total climb while
+  // the reader is reading it.
+  it("counts the sheets that are still arriving in the label", () => {
+    const container = renderFirstFrame(manyEntries);
+
+    expect(sheetsOn(container)[0]?.getAttribute("aria-label")).toBe(
+      "Card page 1 of 3",
+    );
+  });
+
+  it("puts every sheet up before the browser draws any pages", () => {
+    const container = renderFirstFrame(manyEntries);
+
+    act(() => {
+      window.dispatchEvent(new Event("beforeprint"));
+    });
+
+    expect(sheetsOn(container)).toHaveLength(3);
+    expect(container.querySelectorAll("article")).toHaveLength(
+      manyEntries.length,
+    );
+  });
+
+  // Safari has never implemented the event, on desktop or on phone, so the
+  // media query is the only warning it gives that a print has started.
+  it("puts every sheet up for a browser that only has the media query", () => {
+    const media = stubPrintMedia();
+    const container = renderFirstFrame(manyEntries);
+
+    expect(sheetsOn(container)).toHaveLength(1);
+
+    act(() => {
+      media.startPrinting();
+    });
+
+    expect(sheetsOn(container)).toHaveLength(3);
   });
 
   it("tells the printer which paper the sheet is", async () => {

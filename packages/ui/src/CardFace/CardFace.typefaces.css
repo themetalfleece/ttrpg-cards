@@ -1,0 +1,105 @@
+/*
+ * The pairings a card may be set in.
+ *
+ * A pairing is a display face for the title, the rank and the footer, and a
+ * workhorse for everything the reader actually reads. The property labels are
+ * set in the workhorse too: a cell is a quarter of a card, and a display face
+ * at label size does not fit a word like `COMPONENTS` into that width. One
+ * block of the two family properties and the weight, matched on
+ * `data-card-typeface`, the same shape the colour themes take: the face names
+ * it and reads the properties, so adding a pairing is a block here and an
+ * entry in `CARD_TYPEFACES`. Global rather than a module because the attribute
+ * is the selector, and a surface above a card may set it.
+ *
+ * No face is declared here. The families live in `../fonts/fonts.css`, which
+ * is where the files are vendored and where the no-fetch rule is held.
+ *
+ * `--card-display-weight` is the one weight each display face is vendored at:
+ * asking for another would have the browser synthesize it, which smears a face
+ * chosen for its shape. Every fallback stack ends in a system face, so a
+ * pairing still reads as itself before its files land.
+ *
+ * `--card-name-centre` is how far the title moves to look centred in the band.
+ * Centring a line box puts the middle of the ascent and descent in the middle
+ * of the band; what a reader sees as centred is the middle of the capitals. A
+ * face whose ascent and descent are lopsided reads high or low however exactly
+ * its box is placed, and every one of these is lopsided somehow.
+ *
+ * Each number was measured in the browser rather than worked out: with the
+ * correction off, the gap from the top of the band to the cap line and the gap
+ * from the baseline to the bottom of the band, halved, as a share of the size
+ * the title is set at. Positive moves the title down. It belongs to the file
+ * rather than to the card, so re-measure a face that is revendored at another
+ * weight, and leave the rest alone.
+ *
+ * `--card-figure-scale` is the same kind of correction for the numbers a card
+ * carries, the rank and the position. A face draws its figures at whatever
+ * height it likes, so the same nominal size comes out a quarter shorter in one
+ * face than another and the rank stops reading as the thing the card is. The
+ * number is the default pairing's figure height over this face's, measured on
+ * a `1` at one size in each, so the rank is drawn the same height whichever
+ * pairing the reader picked.
+ */
+
+/* Fredoka is round and friendly and still legible at the footer size, and
+ * the condensed workhorse under it fits the most text per card of the five. */
+:root,
+[data-card-typeface="rounded"] {
+  --card-font-family-display:
+    "Fredoka", ui-rounded, "Trebuchet MS", sans-serif;
+  --card-display-weight: 600;
+  --card-name-centre: 0.007em;
+  --card-figure-scale: 1;
+  --card-font-family-body:
+    "Fira Sans Condensed", ui-sans-serif, "Arial Narrow", sans-serif;
+}
+
+/* Softer and wider than the default on both halves, which costs a little of
+ * what a card holds and reads warmer for it. */
+[data-card-typeface="soft"] {
+  --card-font-family-display:
+    "Baloo 2", ui-rounded, "Trebuchet MS", sans-serif;
+  --card-display-weight: 700;
+  --card-name-centre: 0.03em;
+  --card-figure-scale: 1.11;
+  --card-font-family-body:
+    "Nunito", ui-sans-serif, "Arial Narrow", sans-serif;
+}
+
+/* A poster face over a neutral one: the loudest title of the five, with a
+ * body that gets out of its way. */
+[data-card-typeface="poster"] {
+  --card-font-family-display:
+    "Lilita One", ui-rounded, "Trebuchet MS", sans-serif;
+  --card-display-weight: 400;
+  --card-name-centre: 0.03em;
+  --card-figure-scale: 0.99;
+  --card-font-family-body:
+    "Source Sans 3", ui-sans-serif, "Arial Narrow", sans-serif;
+}
+
+/* Square, wide capitals over a body cut from the same idea. Orbitron sets a
+ * long title very wide, which the title fit answers by stepping it down, so
+ * this is the pairing where a name takes a second line soonest. */
+[data-card-typeface="futuristic"] {
+  --card-font-family-display:
+    "Orbitron", ui-monospace, "Trebuchet MS", sans-serif;
+  --card-display-weight: 700;
+  --card-name-centre: -0.016em;
+  --card-figure-scale: 0.96;
+  --card-font-family-body:
+    "Exo 2", ui-sans-serif, "Arial Narrow", sans-serif;
+}
+
+/* A manuscript hand over an old-style serif. The only pairing with a serif
+ * body, which is what makes it read as a page out of a book rather than as a
+ * card with a costume on. Almendra rather than a lighter hand because a title
+ * carries the card, and the only medieval faces that hold weight at title size
+ * are blackletter, where a capital A stops reading as an A. */
+[data-card-typeface="medieval"] {
+  --card-font-family-display: "Almendra", ui-serif, Georgia, serif;
+  --card-display-weight: 700;
+  --card-name-centre: 0.053em;
+  --card-figure-scale: 1.35;
+  --card-font-family-body: "EB Garamond", ui-serif, Georgia, serif;
+}

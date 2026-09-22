@@ -2,9 +2,11 @@ import {
   CARD_SIZES,
   CARD_TEXT_SIZES,
   CARD_THEMES,
+  CARD_TYPEFACES,
   type CardLayoutPresetName,
   type CardTextSizeName,
   type CardThemeId,
+  type CardTypefaceId,
 } from "@ttrpg-cards/card";
 import type { ChoiceGroupOption } from "@ttrpg-cards/ui/ChoiceGroup";
 
@@ -17,6 +19,10 @@ import { choicesFrom } from "../CatalogView.data";
  */
 export const THEME_OPTIONS: readonly ChoiceGroupOption<CardThemeId>[] =
   choicesFrom(CARD_THEMES);
+
+/** The typeface pairings on offer, built from the registry for the same reason. */
+export const TYPEFACE_OPTIONS: readonly ChoiceGroupOption<CardTypefaceId>[] =
+  choicesFrom(CARD_TYPEFACES);
 
 /** The card sizes on offer, built from the presets for the same reason. */
 export const SIZE_OPTIONS: readonly ChoiceGroupOption<CardLayoutPresetName>[] =
@@ -32,5 +38,6 @@ export const TEXT_SIZE_OPTIONS: readonly ChoiceGroupOption<CardTextSizeName>[] =
 
 /** What each control is asking. User-facing copy is American spelling. */
 export const THEME_LABEL = "Color";
+export const TYPEFACE_LABEL = "Type";
 export const SIZE_LABEL = "Card size";
 export const TEXT_SIZE_LABEL = "Text size";

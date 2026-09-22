@@ -7,6 +7,7 @@ import {
 
 import {
   CARD_LAYOUT_PRESETS,
+  CARD_TEXT_SIZE_MARGIN_SCALES,
   CARD_TEXT_SIZE_PRESETS,
   DEFAULT_CARD_LAYOUT_PRESET,
   DEFAULT_CARD_TEXT_SIZE,
@@ -79,6 +80,10 @@ export class CardLayout {
    * The two are picked apart because they are different kinds of decision: how
    * large a card is cut is one, and how large the type on it may be is
    * another, and a reader changes them independently.
+   *
+   * The margins come from both. A size preset says what blank the card wants
+   * at the middle setting, and the text size scales it, so choosing smaller
+   * type also buys the room its margins were holding.
    */
   static fromPreset(options: {
     preset?: CardLayoutPresetName;
@@ -89,17 +94,42 @@ export class CardLayout {
       CARD_LAYOUT_PRESETS[
         options.preset ?? DEFAULT_CARD_LAYOUT_PRESET
       ];
-    const fontSizeRange =
-      CARD_TEXT_SIZE_PRESETS[
-        options.textSize ?? DEFAULT_CARD_TEXT_SIZE
-      ];
+    const textSize = options.textSize ?? DEFAULT_CARD_TEXT_SIZE;
 
     return new CardLayout({
       settings: CardLayout.#merged({
-        base: { ...preset, fontSizeRange },
+        base: {
+          size: preset.size,
+          margins: CardLayout.#scaledMargins({
+            margins: preset.margins,
+            scale: CARD_TEXT_SIZE_MARGIN_SCALES[textSize],
+          }),
+          fontSizeRange: CARD_TEXT_SIZE_PRESETS[textSize],
+        },
         overrides: options.overrides,
       }),
     });
+  }
+
+  /**
+   * A preset's margins at one text setting, rounded to the hundredth of a
+   * millimetre so a scale does not put fifteen decimal places into a
+   * stylesheet.
+   */
+  static #scaledMargins(options: {
+    margins: CardMargins;
+    scale: number;
+  }): CardMargins {
+    const { margins, scale } = options;
+    const scaled = (value: number) =>
+      Math.round(value * scale * 100) / 100;
+
+    return {
+      topMillimetres: scaled(margins.topMillimetres),
+      rightMillimetres: scaled(margins.rightMillimetres),
+      bottomMillimetres: scaled(margins.bottomMillimetres),
+      leftMillimetres: scaled(margins.leftMillimetres),
+    };
   }
 
   /**

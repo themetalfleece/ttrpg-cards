@@ -27,8 +27,9 @@ function render(props: Partial<FilePickerProps> = {}): HTMLElement {
   act(() => {
     root.render(
       <FilePicker
-        onFile={props.onFile ?? (() => {})}
+        onFiles={props.onFiles ?? (() => {})}
         accept={props.accept}
+        multiple={props.multiple}
         disabled={props.disabled}
         className={props.className}
       >
@@ -63,10 +64,13 @@ function buttonIn(container: HTMLElement): HTMLButtonElement {
 }
 
 /** Reports a chosen file the way a browser would. */
-function choose(input: HTMLInputElement, file: File): void {
+function choose(
+  input: HTMLInputElement,
+  ...files: readonly File[]
+): void {
   Object.defineProperty(input, "files", {
     configurable: true,
-    value: [file],
+    value: files,
   });
 
   act(() => {
@@ -112,13 +116,32 @@ describe("FilePicker", () => {
   });
 
   it("reports the file the reader chose", () => {
-    const onFile = vi.fn();
-    const container = render({ onFile });
+    const onFiles = vi.fn();
+    const container = render({ onFiles });
     const file = new File(["# Ward"], "ward.md");
 
     choose(inputIn(container), file);
 
-    expect(onFile).toHaveBeenCalledWith(file);
+    expect(onFiles).toHaveBeenCalledWith([file]);
+  });
+
+  // A reader bringing a set has it in as many documents as they wrote, and
+  // handing them over one at a time is the thing this exists to avoid.
+  it("reports every file of a choice, in the order the picker gave them", () => {
+    const onFiles = vi.fn();
+    const container = render({ onFiles, multiple: true });
+    const first = new File(["# Ward"], "ward.md");
+    const second = new File(["# Lantern"], "lantern.md");
+
+    choose(inputIn(container), first, second);
+
+    expect(onFiles).toHaveBeenCalledTimes(1);
+    expect(onFiles).toHaveBeenCalledWith([first, second]);
+  });
+
+  it("offers one file at a time unless it is told otherwise", () => {
+    expect(inputIn(render()).multiple).toBe(false);
+    expect(inputIn(render({ multiple: true })).multiple).toBe(true);
   });
 
   // Without this the same file chosen twice in a row reports nothing the
@@ -133,14 +156,14 @@ describe("FilePicker", () => {
   });
 
   it("reports nothing when the reader closes the picker empty-handed", () => {
-    const onFile = vi.fn();
-    const input = inputIn(render({ onFile }));
+    const onFiles = vi.fn();
+    const input = inputIn(render({ onFiles }));
 
     act(() => {
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
-    expect(onFile).not.toHaveBeenCalled();
+    expect(onFiles).not.toHaveBeenCalled();
   });
 
   it("does not open while it is disabled", () => {

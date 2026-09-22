@@ -9,10 +9,11 @@ import {
 import type {
   PageOrientation,
   PageSizeName,
-  SheetFillOptions,
   SheetItem,
   SheetLayoutOverrides,
   SheetLayoutSettings,
+  SheetPackingOptions,
+  SheetPlacement,
 } from "./sheet.types";
 
 /**
@@ -179,47 +180,78 @@ export class SheetLayout {
   }
 
   /**
-   * The entries from `items` that this sheet holds, in reading order.
+   * Every card laid out across as many sheets as they need, in reading order.
    *
    * Counted in cards rather than in entries, because an entry whose text will
    * not fit runs onto a continuation and takes a second slot with it. How many
    * cards an entry became is only known once something has measured it, so an
    * entry nothing has measured yet is counted as the one card it is at least.
-   * A count only ever grows from there, which means the run that fits only
-   * ever gets shorter and a consumer filling a sheet settles rather than
-   * flickering between two answers.
    *
-   * Stops at the first entry that will not fit rather than stepping over it
-   * for a smaller one behind, so the sheet keeps the order it was given.
+   * A sheet is only left before it is full when the cards run out. An entry
+   * whose cards will not all fit in what is left puts as many as do there and
+   * carries the rest to the next sheet, so no slot is ever held open for a
+   * card that could not use it. The alternative keeps an entry's cards
+   * together and pays a hole in the sheet for it, which is paper spent to
+   * preserve an adjacency that does not survive the scissors: the cards are
+   * cut apart before anybody reads them.
+   *
+   * An entry needing more cards than a whole sheet holds simply runs across as
+   * many as it needs, filling each.
+   *
+   * A sheet with no room for a card at all paginates to nothing, so a caller
+   * that gets no sheets back for cards it handed over knows the paper and the
+   * card size cannot be reconciled.
    *
    * @example
    * ```ts
-   * SheetLayout.default().fill({
+   * SheetLayout.default().paginate({
    *   items: cards,
    *   layout: CardLayout.default(),
    *   faceCounts: new Map([["alter-self", 2]]),
-   * }); // the eight entries that make nine cards
+   * }); // [[...nine cards worth], [...the rest]]
    * ```
    */
-  fill<Item extends SheetItem>(
-    options: SheetFillOptions<Item>,
-  ): readonly Item[] {
+  paginate<Item extends SheetItem>(
+    options: SheetPackingOptions<Item>,
+  ): readonly (readonly SheetPlacement<Item>[])[] {
     const capacity = this.capacityFor({ layout: options.layout });
-    const fitting: Item[] = [];
+
+    // No room for a single card means there is no arrangement of these cards
+    // on this paper at all. Walking anyway would hand back one overflowing
+    // sheet per entry, which is a worse answer than none: a consumer can say
+    // the one thing that is true and name what to change.
+    if (capacity === 0) {
+      return [];
+    }
+
+    const sheets: SheetPlacement<Item>[][] = [];
+    let current: SheetPlacement<Item>[] = [];
     let used = 0;
 
     for (const item of options.items) {
       const faces = options.faceCounts.get(item.id) ?? 1;
+      let placed = 0;
 
-      if (used + faces > capacity) {
-        break;
+      while (placed < faces) {
+        if (used === capacity) {
+          sheets.push(current);
+          current = [];
+          used = 0;
+        }
+
+        const taken = Math.min(capacity - used, faces - placed);
+
+        current.push({ item, from: placed, count: taken });
+        placed += taken;
+        used += taken;
       }
-
-      used += faces;
-      fitting.push(item);
     }
 
-    return fitting;
+    if (current.length > 0) {
+      sheets.push(current);
+    }
+
+    return sheets;
   }
 
   /**

@@ -3,6 +3,7 @@ import type {
   CardLayout,
   CardSet,
   CardThemeId,
+  CardTypefaceId,
 } from "@ttrpg-cards/card";
 import type { Root } from "react-dom/client";
 
@@ -24,6 +25,15 @@ export interface CardSetViewProps {
    */
   theme?: CardThemeId | undefined;
   /**
+   * The pairing of faces every card of the set is set in.
+   *
+   * Unlike the theme this is part of what a measurement is made against: a
+   * pairing changes how wide the text runs, so it changes where the split
+   * falls. Passing it is what makes the off-page card measure the same card
+   * the reader is looking at.
+   */
+  typeface?: CardTypefaceId | undefined;
+  /**
    * The set to draw, for a caller that has already worked one out, such as a
    * sheet deciding how many entries fit on it. Left off, the entry measures
    * itself.
@@ -43,6 +53,8 @@ export interface UseCardSetOptions {
   card: Card;
   /** The geometry the split is measured against. */
   layout: CardLayout;
+  /** The faces it is measured in, which decide how wide its text runs. */
+  typeface?: CardTypefaceId | undefined;
   /** A set decided elsewhere. Given one, this measures nothing. */
   set?: CardSet | undefined;
 }
@@ -59,6 +71,35 @@ export interface MeasuringSurface {
 }
 
 /**
+ * The set to draw right now, and whether it is the answer or a stand-in.
+ *
+ * An entry renders as the one card it is until its measurement lands, which
+ * is a guess rather than a finding. A consumer that reports what an entry
+ * cost has to be able to tell the two apart: the guess from a card that has
+ * just been remounted must not be allowed to overwrite what was measured of
+ * it a moment earlier, and a measurement must be allowed to say anything,
+ * including that the entry needs fewer cards than it did.
+ */
+export interface CardSetSoFar {
+  /** The set as it should be drawn now. */
+  readonly set: CardSet;
+  /** False only while standing in for a measurement that has not landed. */
+  readonly measured: boolean;
+}
+
+/** A split, and the fonts the candidates behind it were measured in. */
+export interface SplitOutcome {
+  /** Where the entry's content divides. */
+  readonly set: CardSet;
+  /**
+   * What the candidates were set in while they were measured. A fallback face
+   * standing in for one still loading means the split has to be made again,
+   * and these are what says when that face has arrived.
+   */
+  readonly fonts: readonly string[];
+}
+
+/**
  * A set together with what it was measured for, so a card or a geometry that
  * has since changed is recognised as an answer to the wrong question.
  */
@@ -67,6 +108,8 @@ export interface MeasuredCardSet {
   readonly card: Card;
   /** The geometry it was measured against. */
   readonly layout: CardLayout;
+  /** The faces it was measured in. */
+  readonly typeface: CardTypefaceId | undefined;
   /** What it came out as. */
   readonly set: CardSet;
 }

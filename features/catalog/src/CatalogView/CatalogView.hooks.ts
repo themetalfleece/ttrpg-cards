@@ -3,9 +3,11 @@ import {
   DEFAULT_CARD_LAYOUT_PRESET,
   DEFAULT_CARD_TEXT_SIZE,
   DEFAULT_CARD_THEME_ID,
+  DEFAULT_CARD_TYPEFACE_ID,
   type CardLayoutPresetName,
   type CardTextSizeName,
   type CardThemeId,
+  type CardTypefaceId,
 } from "@ttrpg-cards/card";
 import {
   DEFAULT_PAGE_ORIENTATION,
@@ -15,12 +17,16 @@ import {
   type PageSizeName,
 } from "@ttrpg-cards/printer";
 import { SCREEN_SCALE_RANGE, clampToRange } from "@ttrpg-cards/core";
-import { MarkdownDocument } from "@ttrpg-cards/importer";
+import {
+  MarkdownDocument,
+  type ImportIssue,
+} from "@ttrpg-cards/importer";
 import { useCallback, useMemo, useState } from "react";
 
 import {
   CATALOG_ATTRIBUTIONS,
   CATALOG_CARDS,
+  CATALOG_CARD_COUNT,
   NO_ATTRIBUTIONS,
 } from "./CatalogView.data";
 import type {
@@ -64,6 +70,9 @@ export function useCatalogSelection(): CatalogSelection {
   const [textSize, setTextSize] = useState<CardTextSizeName>(
     DEFAULT_CARD_TEXT_SIZE,
   );
+  const [typeface, setTypeface] = useState<CardTypefaceId>(
+    DEFAULT_CARD_TYPEFACE_ID,
+  );
   const [paper, setPaper] = useState<PageSizeName>(DEFAULT_PAGE_SIZE);
   const [orientation, setOrientation] = useState<PageOrientation>(
     DEFAULT_PAGE_ORIENTATION,
@@ -78,26 +87,37 @@ export function useCatalogSelection(): CatalogSelection {
   // Parsed here rather than in the panel, so the panel stays a surface and
   // the cards it produced live with everything else the page is drawn from.
   //
-  // Each document adds to what is already on the page rather than replacing
-  // it, so a reader can build a set up a few cards at a time. The identifiers
-  // already spoken for go in with it, which is what lets two documents that
-  // name a card the same thing both keep theirs.
+  // Documents add to what is already on the page rather than replacing it, so
+  // a reader can build a set up a few at a time and can hand over several at
+  // once. What they brought in one go counts as one import, because that is
+  // the question the summary answers.
   //
   // Through the updater rather than off `brought`, because a file is read
   // asynchronously and the handler that started it would otherwise add to
   // whatever was there when the reader picked it.
-  const importMarkdown = useCallback((source: string) => {
+  const importMarkdown = useCallback((sources: readonly string[]) => {
     setBrought((current) => {
-      const kept = current?.cards ?? [];
-      const document = new MarkdownDocument({
-        source,
-        reservedIdentifiers: kept.map((card) => card.id),
-      });
+      const cards = [...(current?.cards ?? [])];
+      const issues: ImportIssue[] = [];
+      const before = cards.length;
+
+      // One document at a time, each told what the ones before it already
+      // spoke for, so two files naming a card the same thing both keep
+      // theirs rather than the second replacing the first.
+      for (const source of sources) {
+        const document = new MarkdownDocument({
+          source,
+          reservedIdentifiers: cards.map((card) => card.id),
+        });
+
+        cards.push(...document.cards);
+        issues.push(...document.issues);
+      }
 
       return {
-        cards: [...kept, ...document.cards],
-        addedCount: document.cards.length,
-        issues: document.issues,
+        cards,
+        addedCount: cards.length - before,
+        issues,
       };
     });
   }, []);
@@ -146,6 +166,7 @@ export function useCatalogSelection(): CatalogSelection {
 
   return {
     theme,
+    typeface,
     size,
     textSize,
     layout,
@@ -157,8 +178,13 @@ export function useCatalogSelection(): CatalogSelection {
       ? CATALOG_ATTRIBUTIONS
       : NO_ATTRIBUTIONS,
     importSummary,
+    bundled: {
+      shown: CATALOG_CARDS.length,
+      total: CATALOG_CARD_COUNT,
+    },
     screenScale,
     chooseTheme: setTheme,
+    chooseTypeface: setTypeface,
     chooseSize: setSize,
     chooseTextSize: setTextSize,
     choosePaper: setPaper,

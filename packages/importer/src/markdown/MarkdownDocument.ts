@@ -17,7 +17,8 @@ import {
 import { MarkdownSection } from "./MarkdownSection";
 import type { ImportIssue, SourceLine } from "./markdown.types";
 
-/** Which capture of a heading holds its text. */
+/** Which capture of a heading holds its hashes, and which holds its text. */
+const HEADING_LEVEL_GROUP = 1;
 const HEADING_TEXT_GROUP = 2;
 
 /** The cards a document held, and the stretches of it that did not become one. */
@@ -27,13 +28,31 @@ interface DocumentReading {
 }
 
 /**
+ * A heading, as everything that has to reason about the shape of a document
+ * reads one.
+ *
+ * Read once for the whole document rather than by each question that has one
+ * to ask, so what counts as a heading and how deep it is are decided in a
+ * single place.
+ */
+interface DocumentHeading {
+  /** The line it was written on, and what it says without its hashes. */
+  readonly line: SourceLine;
+  /** How deep it is, counted in hashes. */
+  readonly level: number;
+  /** Whether anything is written under it before the next heading. */
+  carries: boolean;
+}
+
+/**
  * A Markdown document read as a set of cards.
  *
- * Every heading starts a card and everything under it belongs to that card,
- * which is the one structural assumption made here. It holds across the
- * documents people actually have, and it is what lets the level of the heading
- * be ignored: a writer who gives each card an `h1` and a writer who nests them
- * under a title mean the same thing.
+ * A heading starts a card and everything under it belongs to that card, which
+ * is the one structural assumption made here. It holds across the documents
+ * people actually have, and which level the writer reached for does not matter:
+ * the level the cards are written at is found rather than assumed, so a writer
+ * who gives each card an `h1` and a writer who nests them under a title mean
+ * the same thing, and a heading deeper than that level stays inside its card.
  *
  * Nothing is fetched, and nothing is sent. The document is read where it was
  * handed over and the cards it holds never leave the browser.
@@ -214,33 +233,129 @@ export class MarkdownDocument {
     return undefined;
   }
 
-  /** The document split at its headings, one section per card. */
+  /**
+   * The document split at its headings, one section per card.
+   *
+   * Only the headings a card is written at do the splitting. A document that
+   * captions a table inside a card writes that caption as a heading too, and
+   * a deeper one is part of the card it sits in rather than the start of
+   * another. Anything deeper than the card level stays with its lines and the
+   * section reads it as a caption.
+   */
   static #sectionsOf(
     lines: readonly SourceLine[],
   ): readonly MarkdownSection[] {
+    const headings = MarkdownDocument.#headingsOf(lines);
+    const cardLevel = MarkdownDocument.#cardLevelOf(headings);
+    const starts = new Map(
+      headings
+        .filter((candidate) => candidate.level <= cardLevel)
+        .map((candidate) => [candidate.line.number, candidate.line]),
+    );
     const sections: MarkdownSection[] = [];
     let heading: SourceLine | undefined;
     let current: SourceLine[] = [];
 
     for (const line of lines) {
-      const match = HEADING.exec(line.text);
+      const starting = starts.get(line.number);
 
-      if (match === null) {
+      if (starting === undefined) {
         current.push(line);
         continue;
       }
 
       MarkdownDocument.#pushSection(sections, heading, current);
-      heading = {
-        number: line.number,
-        text: match[HEADING_TEXT_GROUP] ?? "",
-      };
+      heading = starting;
       current = [];
     }
 
     MarkdownDocument.#pushSection(sections, heading, current);
 
     return sections;
+  }
+
+  /**
+   * Every heading in the document, in the order they were written, each
+   * carrying whether anything was written under it before the next one.
+   *
+   * One pass, because three questions are asked of the same headings: which
+   * level the cards are written at, which headings start one, and what each
+   * one says.
+   */
+  static #headingsOf(
+    lines: readonly SourceLine[],
+  ): readonly DocumentHeading[] {
+    const headings: DocumentHeading[] = [];
+
+    for (const line of lines) {
+      const match = HEADING.exec(line.text);
+
+      if (match !== null) {
+        headings.push({
+          line: {
+            number: line.number,
+            text: match[HEADING_TEXT_GROUP] ?? "",
+          },
+          level: (match[HEADING_LEVEL_GROUP] ?? "").length,
+          carries: false,
+        });
+        continue;
+      }
+
+      const open = headings.at(-1);
+
+      if (open !== undefined && line.text.trim() !== "") {
+        open.carries = true;
+      }
+    }
+
+    return headings;
+  }
+
+  /**
+   * How deep the headings are that start a card.
+   *
+   * The shallowest level where more than one heading carries content. Which
+   * level a writer reaches for says nothing on its own: one document gives
+   * each card an `h1` and the next nests them three deep under a title. What
+   * does say something is repetition, because cards come in runs and a heading
+   * that groups them is one of a kind. A title with a line of prose under it
+   * carries content like any other heading, so content alone cannot tell the
+   * two apart.
+   *
+   * Falls back to the shallowest level that carries anything, which is what a
+   * document holding a single card wants: its one heading is not repeated
+   * either, and a caption deeper inside it must not become the card level. Then
+   * to the shallowest heading there is, for a document whose cards are all
+   * empty. Nothing becomes a card in that case either way, and this keeps the
+   * reporting pointed at the headings rather than at one of them.
+   */
+  static #cardLevelOf(headings: readonly DocumentHeading[]): number {
+    // Counted once per heading rather than once per line, so a long card does
+    // not outvote the level its neighbours are written at.
+    const carrying = new Map<number, number>();
+
+    for (const heading of headings) {
+      if (heading.carries) {
+        carrying.set(
+          heading.level,
+          (carrying.get(heading.level) ?? 0) + 1,
+        );
+      }
+    }
+
+    const levels = [...carrying.keys()].sort(
+      (one, other) => one - other,
+    );
+    const repeated = levels.find(
+      (level) => (carrying.get(level) ?? 0) > 1,
+    );
+    const shallowest = headings.reduce(
+      (deepest, heading) => Math.min(deepest, heading.level),
+      Number.POSITIVE_INFINITY,
+    );
+
+    return repeated ?? levels[0] ?? shallowest;
   }
 
   /** Appends a section, unless no heading has been seen yet. */

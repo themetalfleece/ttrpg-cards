@@ -38,8 +38,14 @@
    * side is enough to push a 193mm grid out of 194mm of content and drop a
    * whole column.
    */
-  outline: var(--border-width-hairline) solid var(--color-border);
-  background-color: var(--color-surface-raised);
+  outline: var(--border-width-hairline) solid var(--color-paper-edge);
+  /*
+   * Paper, on a screen as well as on paper. The sheet does not follow the
+   * desktop's colour scheme: it is the thing being made rather than part of
+   * the app's surface, and a dark sheet is both a lie about what comes out of
+   * the printer and a dark field behind cards that are always light.
+   */
+  background-color: var(--color-paper);
   box-shadow: var(--shadow-raised);
 }
 
@@ -48,35 +54,54 @@
  *
  * A CSS millimetre is not a millimetre: an inch is fixed at 96 pixels, so the
  * sheet is only life sized on a 96 pixel per inch display. `--screen-scale` is
- * the correction the reader calibrated, and `zoom` is what applies it rather
- * than a transform, because the credit sits below the sheet and a transform
- * would scale it visually without reserving the room.
+ * the correction the reader calibrated.
+ *
+ * Drawn with a transform rather than a `zoom`. A zoom changes the lengths the
+ * sheet is laid out in, so the browser lays every card on it out again for
+ * each step of the control: a fifth of a second of locked page per step, for
+ * an arrangement that cannot have changed. A transform draws the sheet that is
+ * already laid out at another size, which costs a composite. What a reader
+ * asked for when they moved that control is exactly the second thing.
+ *
+ * The margins are the part a transform does not do on its own: they reserve
+ * the room the drawing takes, so the next sheet and the credit under it sit
+ * where the reader sees the sheet end rather than where its box does. Below
+ * life size they come out negative, which reserves less room, which is right.
  *
  * Screens only. On paper the millimetres are already physical, so correcting
  * them there would be the one thing that makes the print wrong.
  */
 @media screen {
   .page {
-    zoom: var(--screen-scale, 1);
+    transform: scale(var(--screen-scale, 1));
+    transform-origin: top left;
+    margin-right: calc(
+      var(--page-width) * (var(--screen-scale, 1) - 1)
+    );
+    margin-bottom: calc(
+      var(--page-height) * (var(--screen-scale, 1) - 1)
+    );
   }
 }
 
-/* Reads as a note on an empty sheet rather than as something to be cut out. */
-.empty {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-small);
+/*
+ * One sheet is one piece of paper, so the next one starts on the next piece
+ * rather than flowing on from this one. `break-before` on every sheet but the
+ * first, rather than `break-after` on every sheet, because the latter puts a
+ * blank sheet out of the printer after the last one.
+ */
+.page + .page {
+  margin-top: var(--space-5);
+  break-before: page;
 }
 
-/*
- * An entry is one item on the page however many cards it takes, so it lays out
- * against the page's own gap rather than the one a set keeps between its cards
- * on a surface that has not said. Written as a descendant so it beats the
- * set's own rule wherever the two stylesheets end up in the bundle.
- */
-.page > .cardSet {
-  gap: var(--page-card-gap);
-  break-inside: avoid;
+/* Reads as a note on an empty sheet rather than as something to be cut out.
+   Ink on paper, like everything else the sheet carries, so it stays legible
+   on a white sheet with the app dark around it. */
+.empty {
+  margin: 0;
+  color: var(--color-paper-text-muted);
+  font-size: var(--font-size-small);
 }
 
 /*
@@ -96,12 +121,11 @@
     padding: 0 0 0 var(--page-grid-inset);
     outline: none;
     box-shadow: none;
-    /* Paper, not the reader's surface colour. The sheet paints it rather than
-       going transparent, because what shows through otherwise is the app's own
-       background and the sheet comes out tinted. `print-color-adjust` is what
-       makes the browser honour it: background colours are dropped by default
-       unless the reader finds the background graphics option. */
-    background-color: var(--color-paper);
+    /* The sheet paints its paper rather than going transparent, because what
+       shows through otherwise is the app's own background and the sheet comes
+       out tinted. `print-color-adjust` is what makes the browser honour it:
+       background colours are dropped by default unless the reader finds the
+       background graphics option. */
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }

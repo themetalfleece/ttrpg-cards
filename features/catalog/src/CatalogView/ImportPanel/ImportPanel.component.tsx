@@ -13,6 +13,7 @@ import {
   IMPORT_LABEL,
   NOTHING_READ,
   PANEL_TITLE,
+  bundledSampleSummary,
   PASTE_LABEL,
   PASTE_PLACEHOLDER,
   PASTE_ROWS,
@@ -45,6 +46,7 @@ export function ImportPanel({
   onImport,
   onClear,
   summary,
+  bundled,
   className,
 }: ImportPanelProps) {
   const source = useImportSource({ onImport });
@@ -74,7 +76,8 @@ export function ImportPanel({
         </Button>
         <FilePicker
           accept={DOCUMENT_FILE_TYPES}
-          onFile={source.chooseFile}
+          multiple
+          onFiles={source.chooseFiles}
         >
           {UPLOAD_LABEL}
         </FilePicker>
@@ -92,11 +95,11 @@ export function ImportPanel({
           {NOTHING_READ}
         </Box>
       )}
-      {broughtCount > 0 && (
-        <Box as="p" className={styles.summary}>
-          {cardsReadSummary(broughtCount)}
-        </Box>
-      )}
+      <Box as="p" className={styles.summary}>
+        {broughtCount > 0
+          ? cardsReadSummary(broughtCount)
+          : bundledSampleSummary(bundled)}
+      </Box>
       {issues.length > 0 && (
         <Box className={styles.unread}>
           <Box as="p">{unreadSummary(issues.length)}</Box>

@@ -4,6 +4,9 @@ import {
   type CardBlock,
   type CardCalloutBlock,
   type CardMetaField,
+  type TableCell,
+  cardWithFittedStats,
+  tableBlocks,
 } from "@ttrpg-cards/card";
 import {
   RichText,
@@ -19,6 +22,7 @@ import {
   BULLET,
   DIVIDER,
   FOOTER_SEPARATOR,
+  HEADING,
   HEADING_BADGE,
   LAYOUT_DIRECTIVE,
   LEADING_COLON,
@@ -26,12 +30,17 @@ import {
   LINE_BREAK,
   LIST_BREAK,
   MARKED_LABEL,
+  NAMED_RANK_BADGES,
+  NAMED_RANK_EDGES,
   QUOTE,
   RANK_LINE_MAX_WORDS,
   RANK_NUMBER,
   RANK_NUMBER_WITHIN,
   SENTENCE_END,
   SENTENCE_PUNCTUATION,
+  TABLE_ALIGNMENT,
+  TABLE_CELL_SEPARATOR,
+  TABLE_ROW,
   TITLE_CASE_LABEL,
   TRAILING_COLON,
   WORD_GAP,
@@ -41,6 +50,9 @@ import type {
   MarkdownBlockKind,
   SourceLine,
 } from "./markdown.types";
+
+/** Which capture of a heading holds the text it is written with. */
+const HEADING_TEXT_GROUP = 2;
 
 /** How many markers wrap a span read as a lead-in rather than as stress. */
 const LEAD_IN_MARKER_LENGTH = 2;
@@ -169,6 +181,11 @@ export class MarkdownSection {
    * What comes back is a candidate rather than a card: it is built out of text
    * a reader supplied, so the caller checks it against the model before
    * anything downstream sees it.
+   *
+   * The parser's job ends at saying what the document says. Setting that to
+   * fit a card face is the card model's job, and a reader's document goes
+   * through the same one the bundled catalog does, so an `Instantaneous` they
+   * typed reads like every other one on the sheet.
    */
   cardFrom(options: { id: string }): Card | undefined {
     const heading = this.#nameAndBadge;
@@ -199,7 +216,7 @@ export class MarkdownSection {
       card.footer = [...parts.footer];
     }
 
-    return card;
+    return cardWithFittedStats(card);
   }
 
   /**
@@ -488,6 +505,31 @@ export class MarkdownSection {
       return;
     }
 
+    if (block.kind === "table") {
+      body.push(...MarkdownSection.#tableFrom(block));
+
+      return;
+    }
+
+    // A heading inside a card is a caption: it names what comes next rather
+    // than starting anything of its own. The card model has no heading, and
+    // strong is what it sets a caption in.
+    if (block.kind === "heading") {
+      const written = MarkdownSection.#joined(block.lines);
+      const caption = MarkdownSection.#runsFrom(
+        HEADING.exec(written)?.[HEADING_TEXT_GROUP] ?? written,
+      );
+
+      if (caption !== undefined) {
+        body.push({
+          kind: CARD_BLOCK_KINDS.paragraph,
+          text: RichText.marked(caption, TEXT_MARKS.strong),
+        });
+      }
+
+      return;
+    }
+
     const text = MarkdownSection.#joined(block.lines);
     const aside = MarkdownSection.#asideFromHeading(text);
 
@@ -534,7 +576,15 @@ export class MarkdownSection {
           MarkdownSection.#lineText(line.text),
         ) !== undefined;
 
-      if (current.length > 0 && (lineKind !== kind || opensAside)) {
+      // A heading stands alone whatever is either side of it, because it
+      // names what follows rather than joining it.
+      const standsAlone =
+        lineKind === "heading" || kind === "heading";
+
+      if (
+        current.length > 0 &&
+        (lineKind !== kind || opensAside || standsAlone)
+      ) {
         MarkdownSection.#pushBlock(blocks, kind, current);
         current = [];
       }
@@ -557,7 +607,7 @@ export class MarkdownSection {
     );
   }
 
-  /** Which of the three shapes a line is written in. */
+  /** Which shape a line is written in. */
   static #kindOf(text: string): MarkdownBlockKind {
     if (QUOTE.test(text)) {
       return "quote";
@@ -567,7 +617,55 @@ export class MarkdownSection {
       return "bullets";
     }
 
+    if (TABLE_ROW.test(text)) {
+      return "table";
+    }
+
+    // A heading this deep into a card is a caption rather than a card of its
+    // own. Which headings reach here at all is the document's decision, made
+    // once it knows the level its cards are written at.
+    if (HEADING.test(text)) {
+      return "heading";
+    }
+
     return "paragraph";
+  }
+
+  /**
+   * A table as the blocks a card can hold.
+   *
+   * Only the reading is done here. How a table is set on a card is one rule
+   * in the card model that every source goes through, so a table a reader
+   * wrote comes out arranged like a table from the bundled catalog.
+   */
+  static #tableFrom(block: MarkdownBlock): CardBlock[] {
+    const rows = block.lines
+      .map((line) => MarkdownSection.#lineText(line.text))
+      .filter((text) => !TABLE_ALIGNMENT.test(text))
+      .map((text) => MarkdownSection.#cellsOf(text));
+
+    const [header, ...body] = rows;
+
+    if (header === undefined) {
+      return [];
+    }
+
+    return tableBlocks({ header, rows: body });
+  }
+
+  /**
+   * One table row split into its cells.
+   *
+   * The fences at each end are not cells, so what they leave outside the row
+   * is dropped. A cell with nothing in it stays, because the cells line up
+   * with the columns above them and one dropped would move the rest.
+   */
+  static #cellsOf(text: string): TableCell[] {
+    const inside = text.replace(/^\s*\|/, "").replace(/\|\s*$/, "");
+
+    return inside
+      .split(TABLE_CELL_SEPARATOR)
+      .map((cell) => MarkdownSection.#runsFrom(cell.trim()));
   }
 
   /** Appends a block, unless the run of lines turned out to be empty. */
@@ -695,13 +793,20 @@ export class MarkdownSection {
     const words = text
       .split(WORD_GAP)
       .filter((word) => word.length > 0);
+
+    if (words.length > RANK_LINE_MAX_WORDS) {
+      return undefined;
+    }
+
+    const named = MarkdownSection.#namedRankFrom(words);
+
+    if (named !== undefined) {
+      return named;
+    }
+
     const index = words.findIndex((word) => RANK_NUMBER.test(word));
 
-    if (
-      words.length > RANK_LINE_MAX_WORDS ||
-      index === -1 ||
-      index >= RANK_NUMBER_WITHIN
-    ) {
+    if (index === -1 || index >= RANK_NUMBER_WITHIN) {
       return undefined;
     }
 
@@ -722,6 +827,54 @@ export class MarkdownSection {
     const after = words.slice(index + 1).join(" ");
     const category =
       after.length > 0 ? after : words.slice(0, index).join(" ");
+
+    return {
+      badge,
+      category: category.length > 0 ? category : undefined,
+    };
+  }
+
+  /**
+   * A rank line that names its rank in a word rather than a numeral.
+   *
+   * `Divination Cantrip` says the same two things as `Level 1 Evocation`: the
+   * lowest rank there is, and what the card is. Documents write the word at
+   * either end, so it is looked for at both, and whatever is left over is the
+   * classification that goes along the bottom rule.
+   *
+   * The badge is a letter rather than the numeral the rank would be, because
+   * a `0` in the corner of a card reads as a quantity of nothing rather than
+   * as a rank.
+   */
+  static #namedRankFrom(
+    words: readonly string[],
+  ): RankLine | undefined {
+    const index = words.findIndex(
+      (word) =>
+        NAMED_RANK_BADGES[
+          word.toLowerCase().replace(NAMED_RANK_EDGES, "")
+        ] !== undefined,
+    );
+
+    if (index === -1) {
+      return undefined;
+    }
+
+    const badge =
+      NAMED_RANK_BADGES[
+        (words[index] ?? "")
+          .toLowerCase()
+          .replace(NAMED_RANK_EDGES, "")
+      ];
+
+    if (badge === undefined) {
+      return undefined;
+    }
+
+    const category = [
+      ...words.slice(0, index),
+      ...words.slice(index + 1),
+    ].join(" ");
 
     return {
       badge,

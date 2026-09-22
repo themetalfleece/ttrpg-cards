@@ -8,7 +8,7 @@ const meta = {
   args: {
     children: "Choose a file",
     accept: ".md,.markdown,.txt",
-    onFile: () => {},
+    onFiles: () => {},
   },
 } satisfies Meta<typeof FilePicker>;
 
@@ -21,4 +21,9 @@ export const Default: Story = {};
 /** Nothing to choose a file for, so nothing to open. */
 export const Disabled: Story = {
   args: { disabled: true },
+};
+
+/** Several documents in one go, which is how a reader brings a set. */
+export const Multiple: Story = {
+  args: { children: "Choose files", multiple: true },
 };

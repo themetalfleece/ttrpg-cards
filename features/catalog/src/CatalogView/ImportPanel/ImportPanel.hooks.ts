@@ -7,8 +7,8 @@ import type {
 } from "./ImportPanel.types";
 
 /**
- * The document the reader is putting together, whether they typed it or
- * picked it off their disk.
+ * The documents the reader is putting together, whether they typed one or
+ * picked them off their disk.
  *
  * The field empties once its contents have been handed over, because each
  * document adds to the cards already on the page: left where it was, the next
@@ -32,16 +32,20 @@ export function useImportSource({
 
   const submit = useCallback(() => {
     setProblem(undefined);
-    onImport(text);
+    onImport([text]);
     setText("");
   }, [onImport, text]);
 
-  const chooseFile = useCallback(
-    (file: File) => {
-      void file.text().then(
-        (source) => {
+  // Read together and handed over together, so the summary counts one import
+  // rather than reporting the last file as though the others had not arrived.
+  // A file the disk refused stops the lot, because a reader told "3 cards" out
+  // of four files has no way to tell which one went missing.
+  const chooseFiles = useCallback(
+    (files: readonly File[]) => {
+      void Promise.all(files.map((file) => file.text())).then(
+        (sources) => {
           setProblem(undefined);
-          onImport(source);
+          onImport(sources);
         },
         () => {
           setProblem(UNREADABLE_FILE);
@@ -51,5 +55,5 @@ export function useImportSource({
     [onImport],
   );
 
-  return { text, problem, setText, submit, chooseFile };
+  return { text, problem, setText, submit, chooseFiles };
 }

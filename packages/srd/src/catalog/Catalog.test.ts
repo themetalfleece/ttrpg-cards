@@ -58,17 +58,17 @@ describe("Catalog.cardFrom", () => {
         field.value.map((run) => run.text).join(""),
       ]),
     ).toEqual([
-      ["Casting Time", "1 reaction"],
       ["Range", "Self"],
       ["Components", "V, M"],
-      ["Duration", "Concentration, up to 1 hour"],
+      ["Duration", "Conc. 1 hour"],
+      ["Casting Time", "1 reaction"],
     ]);
   });
 
   it("writes the components the entry needs, or says none", () => {
     const value = (entry: CatalogEntry) =>
       Catalog.cardFrom(entry)
-        .meta[2]?.value.map((run) => run.text)
+        .meta[1]?.value.map((run) => run.text)
         .join("");
 
     expect(
@@ -91,12 +91,94 @@ describe("Catalog.cardFrom", () => {
     ).toBe("None");
   });
 
-  it("leaves a duration alone when nothing holds it", () => {
-    const card = Catalog.cardFrom(
-      entryWith({ concentration: false, duration: "Instantaneous" }),
-    );
+  // The mapping writes the material into the value the way the document
+  // writes it, and the card model lifts it straight back out, so the cell
+  // holds letters whether or not there is a material to hold.
+  it("keeps a material out of the cell that names the letters", () => {
+    expect(
+      Catalog.cardFrom(
+        entryWith({
+          components: {
+            verbal: true,
+            somatic: false,
+            material: true,
+            materialText: "a wick soaked in oil",
+          },
+        }),
+      )
+        .meta[1]?.value.map((run) => run.text)
+        .join(""),
+    ).toBe("V, M");
+  });
 
-    expect(card.meta[3]?.value).toEqual([{ text: "Instantaneous" }]);
+  describe("the duration it writes", () => {
+    const duration = (entry: CatalogEntry) =>
+      Catalog.cardFrom(entry)
+        .meta[2]?.value.map((run) => run.text)
+        .join("");
+
+    it("prints a duration the cell can hold exactly as the document does", () => {
+      expect(
+        duration(
+          entryWith({ concentration: false, duration: "8 hours" }),
+        ),
+      ).toBe("8 hours");
+      expect(
+        duration(
+          entryWith({
+            concentration: false,
+            duration: "Until dispelled",
+          }),
+        ),
+      ).toBe("Until dispelled");
+    });
+
+    // Thirteen letters with nowhere to wrap, in a cell a quarter of a card
+    // wide. Left whole it breaks in the middle of the word.
+    it("shortens the one word too long for a cell to hold", () => {
+      expect(
+        duration(
+          entryWith({
+            concentration: false,
+            duration: "Instantaneous",
+          }),
+        ),
+      ).toBe("Instant");
+    });
+
+    // Concentration is what makes a duration a maximum, so a card carrying
+    // both says the same thing twice in its narrowest cell.
+    it("names concentration once, in place of the up to it implies", () => {
+      expect(
+        duration(
+          entryWith({
+            concentration: true,
+            duration: "Up to 1 hour",
+          }),
+        ),
+      ).toBe("Conc. 1 hour");
+      expect(
+        duration(
+          entryWith({
+            concentration: true,
+            duration: "Up to 10 minutes",
+          }),
+        ),
+      ).toBe("Conc. 10 minutes");
+    });
+
+    // One entry in the bundled catalog spells its number as a word, and the
+    // prefix comes off the front rather than the first word being rewritten.
+    it("leaves the duration it kept alone otherwise", () => {
+      expect(
+        duration(
+          entryWith({
+            concentration: true,
+            duration: "Up to one minute",
+          }),
+        ),
+      ).toBe("Conc. one minute");
+    });
   });
 
   it("lays the body out in reading order", () => {

@@ -22,7 +22,8 @@ import type { FilePickerProps } from "./FilePicker.types";
 export function FilePicker({
   children,
   accept,
-  onFile,
+  onFiles,
+  multiple,
   disabled,
   className,
 }: FilePickerProps) {
@@ -35,14 +36,14 @@ export function FilePicker({
   const handleChange = (
     event: ChangeEvent<HTMLInputElement>,
   ): void => {
-    const file = event.target.files?.[0];
+    const files = [...(event.target.files ?? [])];
 
     // Cleared so that choosing the same file twice in a row is still a
     // change. Without it the second choice reports nothing at all.
     event.target.value = "";
 
-    if (file !== undefined) {
-      onFile(file);
+    if (files.length > 0) {
+      onFiles(files);
     }
   };
 
@@ -53,6 +54,7 @@ export function FilePicker({
         type="file"
         className={styles.input}
         accept={accept}
+        multiple={multiple}
         onChange={handleChange}
       />
       <Button onPress={handlePress} disabled={disabled}>

@@ -4,6 +4,10 @@ import {
   type CardBlock,
   type CardMetaField,
   type CardSource,
+  type CardTable,
+  type TableCell,
+  cardWithFittedStats,
+  tableBlocks,
 } from "@ttrpg-cards/card";
 import { runsFromMarkup } from "@ttrpg-cards/importer";
 import {
@@ -50,29 +54,8 @@ interface CastingTime {
   readonly trigger: string | undefined;
 }
 
-/** One cell of a printed table, with the column heading above it. */
-interface TableCell {
-  readonly text: string;
-  readonly heading: string;
-}
-
 /** "1 reaction, which you take when ..." splits before the clause. */
 const CASTING_TIME_TRIGGER = /^([^,]+),\s*(which\b.*)$/is;
-
-/** A material component reads as a sentence once it leaves its parentheses. */
-const SENTENCE_END = /[.!?]$/;
-
-/**
- * Above this many columns a row no longer reads as "key: value", so each cell
- * is written out under its own heading.
- */
-const LABELLED_COLUMN_THRESHOLD = 2;
-
-/**
- * What joins the column headings a captionless table is read under. A colon
- * would read badly after the two headings that end in an ellipsis.
- */
-const HEADING_SEPARATOR = " / ";
 
 /** What input has failed to be, for an error message. */
 const CATALOG_SUBJECT = "catalog";
@@ -166,8 +149,14 @@ export class Catalog {
    *
    * The entry's named fields become an ordered stat block, its description
    * becomes body blocks, and the sections that read as asides (the higher
-   * level upgrade, the material component) become callouts. Nothing about the
-   * result says which kind of card it is.
+   * level upgrade) become callouts. Nothing about the result says which kind
+   * of card it is.
+   *
+   * What this class produces says what the document says, in the document's
+   * own wording. Setting that to fit a card face is the card model's job, and
+   * the card goes out through the same transformer a reader's own document
+   * does: it is what shortens a value too long for its cell and what moves a
+   * material out of the strip and into the body.
    *
    * @example
    * ```ts
@@ -195,7 +184,7 @@ export class Catalog {
       card.source = source;
     }
 
-    return card;
+    return cardWithFittedStats(card);
   }
 
   /** The glyph in the corner of the title bar: the entry's level. */
@@ -212,22 +201,31 @@ export class Catalog {
 
   /** One stat block entry, both halves as plain text. */
   static #field(label: string, value: string): CardMetaField {
-    return { label: RichText.of(label), value: RichText.of(value) };
+    return {
+      label: RichText.of(label),
+      value: RichText.of(value),
+    };
   }
 
-  /** The stat block, in the order it is laid out. */
+  /**
+   * The stat block, in the order it is laid out.
+   *
+   * Reach first, then what it costs to cast, then how long it lasts, then how
+   * long it takes: a reader scanning a row of cards is looking for whether the
+   * thing is in range before anything else about it.
+   */
   static #meta(entry: CatalogEntry): CardMetaField[] {
     return [
+      Catalog.#field(META_LABELS.range, entry.range),
+      Catalog.#field(
+        META_LABELS.components,
+        Catalog.#components(entry.components),
+      ),
+      Catalog.#field(META_LABELS.duration, Catalog.#duration(entry)),
       Catalog.#field(
         META_LABELS.castingTime,
         Catalog.#castingTime(entry.castingTime).value,
       ),
-      Catalog.#field(META_LABELS.range, entry.range),
-      Catalog.#field(
-        META_LABELS.components,
-        Catalog.#componentLetters(entry.components),
-      ),
-      Catalog.#field(META_LABELS.duration, Catalog.#duration(entry)),
     ];
   }
 
@@ -243,6 +241,27 @@ export class Catalog {
     const [, value = "", trigger = ""] = match;
 
     return { value: value.trim(), trigger: trigger.trim() };
+  }
+
+  /**
+   * The components as the document prints them: the letters, and then in
+   * brackets whatever the caster has to be holding.
+   *
+   * Extraction splits the material out into its own field, so putting it back
+   * restores the licensor's own line. Where it ends up on the card is not this
+   * class's business: a bracket carrying prose is prose whoever wrote it, so
+   * one rule in `@ttrpg-cards/card` moves it to the body for every source, and
+   * {@link Catalog.cardFrom} is where that happens.
+   */
+  static #components(components: EntryComponents): string {
+    const letters = Catalog.#componentLetters(components);
+    const material = components.materialText?.trim();
+
+    if (material === undefined || material === "") {
+      return letters;
+    }
+
+    return `${letters} (${material})`;
   }
 
   /** The letters the source prints, or the word it uses for none of them. */
@@ -268,6 +287,11 @@ export class Catalog {
    * The duration as the document prints it. Extraction lifts the
    * concentration prefix into a flag, so putting it back restores the
    * licensor's own wording rather than inventing a second field for it.
+   *
+   * Setting it shorter than that is not this class's business: a cell being a
+   * quarter of a card wide is true of a card a reader wrote too, so the
+   * shortening is one rule in `@ttrpg-cards/card` that every source goes
+   * through. {@link Catalog.cardFrom} is where it happens.
    */
   static #duration(entry: CatalogEntry): string {
     if (!entry.concentration) {
@@ -310,25 +334,7 @@ export class Catalog {
       });
     }
 
-    const material = entry.components.materialText;
-
-    if (material !== undefined) {
-      blocks.push({
-        kind: CARD_BLOCK_KINDS.callout,
-        label: RichText.of(META_LABELS.material),
-        text: RichText.of(Catalog.#materialSentence(material)),
-      });
-    }
-
     return blocks;
-  }
-
-  /** A material component read back as its own sentence. */
-  static #materialSentence(material: string): string {
-    const trimmed = material.trim();
-    const opened = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
-
-    return SENTENCE_END.test(opened) ? opened : `${opened}.`;
   }
 
   /** One description block as the card blocks it maps onto. */
@@ -355,119 +361,30 @@ export class Catalog {
   }
 
   /**
-   * A printed table as a caption and a list, one item per row.
+   * A printed table as the card model sets one.
    *
-   * The card model has no table, and that is the right shape for a card this
-   * small: a grid sized for a page column does not survive being set at card
-   * width. Each row is written out instead, led by its first cell.
+   * The arrangement is not this class's to choose: a table a reader wrote and
+   * a table lifted out of a release are the same thing once they have been
+   * read, so both go through the one rule in `@ttrpg-cards/card`. All that
+   * happens here is reading the source's markup, which is the half only this
+   * class knows how to do.
    */
   static #tableBlocks(table: EntryTable): CardBlock[] {
-    const blocks: CardBlock[] = [];
-    const heading = Catalog.#tableHeading(table);
-
-    if (heading !== undefined) {
-      blocks.push({
-        kind: CARD_BLOCK_KINDS.paragraph,
-        text: RichText.marked(
-          runsFromMarkup(heading),
-          TEXT_MARKS.strong,
-        ),
-      });
-    }
-
-    const rows = table.rows
-      .map((row) => Catalog.#cells(row, table.header))
-      .filter((cells) => cells.some((cell) => cell.text !== ""));
-
-    if (rows.length > 0) {
-      blocks.push({
-        kind: CARD_BLOCK_KINDS.list,
-        items: rows.map((cells) =>
-          Catalog.#rowRuns(cells, table.header.length),
-        ),
-      });
-    }
-
-    return blocks;
-  }
-
-  /**
-   * The line a table is read under: its caption when it prints one, otherwise
-   * its column headings.
-   *
-   * Most printed tables here carry no caption, and for those the first
-   * column's heading is the only thing that says what the first cell means. It
-   * has to be written out, because the header row does not survive onto the
-   * card and nothing downstream can recover it. Past two columns only that
-   * first heading is still unsaid, since {@link Catalog.#rowRuns} writes the
-   * rest beside their cells.
-   */
-  static #tableHeading(table: EntryTable): string | undefined {
-    if (table.caption !== undefined) {
-      return table.caption;
-    }
-
-    const unsaid =
-      table.header.length > LABELLED_COLUMN_THRESHOLD
-        ? table.header.slice(0, 1)
-        : table.header;
-    const headings = unsaid
-      .map((heading) => heading.trim())
-      .filter((heading) => heading !== "");
-
-    return headings.length > 0
-      ? headings.join(HEADING_SEPARATOR)
-      : undefined;
-  }
-
-  /** One row's cells paired with the headings above them. */
-  static #cells(
-    row: readonly string[],
-    header: readonly string[],
-  ): TableCell[] {
-    return row.map((text, index) => ({
-      text: text.trim(),
-      heading: (header[index] ?? "").trim(),
-    }));
-  }
-
-  /**
-   * One row as a line of text: the first cell in strong, then the rest.
-   *
-   * A two column table reads as "key: value", and the heading line above
-   * already names both columns, so a row does not repeat them. A wider one
-   * does not read that way, so each cell is written out under its own heading.
-   */
-  static #rowRuns(
-    cells: readonly TableCell[],
-    columnCount: number,
-  ): TextRuns {
-    const [lead, ...rest] = cells;
-    const spans: TextRuns[] = [];
-
-    if (lead !== undefined && lead.text !== "") {
-      spans.push(
-        RichText.marked(runsFromMarkup(lead.text), TEXT_MARKS.strong),
-      );
-    }
-
-    const labelled = columnCount > LABELLED_COLUMN_THRESHOLD;
-    const values = rest
-      .filter((cell) => cell.text !== "")
-      .map((cell) =>
-        labelled && cell.heading !== ""
-          ? `${cell.heading} ${cell.text}`
-          : cell.text,
+    const cells = (row: readonly string[]): TableCell[] =>
+      row.map((text) =>
+        text.trim() === "" ? undefined : runsFromMarkup(text.trim()),
       );
 
-    if (values.length > 0) {
-      const text = values.join(", ");
-      spans.push(
-        runsFromMarkup(spans.length > 0 ? `: ${text}` : text),
-      );
-    }
+    const printed: CardTable = {
+      header: cells(table.header),
+      rows: table.rows.map(cells),
+    };
 
-    return RichText.joined(...spans);
+    return tableBlocks(
+      table.caption === undefined
+        ? printed
+        : { ...printed, caption: runsFromMarkup(table.caption) },
+    );
   }
 
   /** The short entries along the bottom rule. */

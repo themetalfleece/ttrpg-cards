@@ -13,8 +13,9 @@ export type {
   PagePreset,
   PageSizeName,
   PageSizeOption,
-  SheetFillOptions,
   SheetItem,
   SheetLayoutOverrides,
   SheetLayoutSettings,
+  SheetPackingOptions,
+  SheetPlacement,
 } from "./sheet.types";

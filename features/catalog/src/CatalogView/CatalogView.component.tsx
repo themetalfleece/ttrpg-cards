@@ -4,7 +4,7 @@
 
 import { Box } from "@ttrpg-cards/ui/Box";
 import clsx from "clsx";
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 
 import { AttributionNotice } from "./AttributionNotice/AttributionNotice.component";
 import { CardControls } from "./CardControls/CardControls.component";
@@ -37,6 +37,11 @@ import type { CatalogViewProps } from "./CatalogView.types";
 export function CatalogView({ className }: CatalogViewProps) {
   const selection = useCatalogSelection();
 
+  // The page says when it is finished and the controls need to know, because
+  // a print draws what is on screen at the moment it is asked for. They are
+  // siblings, so the answer passes through here.
+  const [printable, setPrintable] = useState(true);
+
   // React types `style` as the properties it knows about, so the custom
   // property the stylesheets read needs the assertion.
   const style = screenScaleStyle({
@@ -49,6 +54,8 @@ export function CatalogView({ className }: CatalogViewProps) {
         <CardControls
           theme={selection.theme}
           onThemeChange={selection.chooseTheme}
+          typeface={selection.typeface}
+          onTypefaceChange={selection.chooseTypeface}
           size={selection.size}
           onSizeChange={selection.chooseSize}
           textSize={selection.textSize}
@@ -59,6 +66,7 @@ export function CatalogView({ className }: CatalogViewProps) {
           onPaperChange={selection.choosePaper}
           orientation={selection.orientation}
           onOrientationChange={selection.chooseOrientation}
+          printable={printable}
         />
         <ScreenCalibration
           scale={selection.screenScale}
@@ -69,6 +77,7 @@ export function CatalogView({ className }: CatalogViewProps) {
           onImport={selection.importMarkdown}
           onClear={selection.clearImport}
           summary={selection.importSummary}
+          bundled={selection.bundled}
         />
       </Box>
       <CardPage
@@ -76,6 +85,8 @@ export function CatalogView({ className }: CatalogViewProps) {
         layout={selection.layout}
         sheet={selection.sheet}
         theme={selection.theme}
+        typeface={selection.typeface}
+        onPrintableChange={setPrintable}
       />
       <AttributionNotice attributions={selection.attributions} />
     </Box>

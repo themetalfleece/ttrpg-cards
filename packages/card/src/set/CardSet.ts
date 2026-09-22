@@ -422,11 +422,16 @@ export class CardSet {
   /**
    * One card of the set: the whole card at `index` 0, a continuation after it.
    *
-   * A continuation carries the name, the rest of the body, and nothing else.
-   * Repeating the stat block would spend the room the split exists to reclaim,
-   * and the badge, subtitle and footer would spend it on a second copy of what
-   * the first card already says. The source travels with the content, because
-   * the content is what carries its terms.
+   * A continuation carries the name, the badge, the rest of the body, and
+   * nothing else. Repeating the stat block would spend the room the split
+   * exists to reclaim, and the subtitle and footer would spend it on a second
+   * copy of what the first card already says.
+   *
+   * The badge is the exception because it is what the card is, not a repeat of
+   * something said elsewhere: somebody holding the second card of an entry
+   * still has to be able to read its rank off it, and a glyph in the corner of
+   * the title bar costs no height at all. The source travels with the content,
+   * because the content is what carries its terms.
    */
   static #face(options: {
     card: Card;
@@ -446,6 +451,10 @@ export class CardSet {
       meta: [],
       body,
     };
+
+    if (card.badge !== undefined) {
+      continuation.badge = card.badge;
+    }
 
     if (card.source !== undefined) {
       continuation.source = card.source;

@@ -29,6 +29,10 @@ import {
   unreadLine,
 } from "./ImportPanel/ImportPanel.constants";
 import {
+  PRINT_LABEL,
+  PRINT_WAITING_LABEL,
+} from "./PageControls/PageControls.constants";
+import {
   CALIBRATION_HINT,
   CALIBRATION_LABEL,
 } from "./ScreenCalibration/ScreenCalibration.constants";
@@ -76,6 +80,34 @@ const LATER_CARD = [
   "It burns down to nothing by morning.",
   "",
 ].join("\n");
+
+/** Enough frames for the page to stop moving, and how long one lasts. */
+const FRAMES_TO_PASS = 10;
+const FRAME_MILLISECONDS = 20;
+
+/**
+ * A sheet of paper on the page, by the label it announces itself with.
+ *
+ * Matched on the label rather than the element, because the view is made of
+ * sections and only some of them are paper.
+ */
+const SHEET_SELECTOR = 'section[aria-label^="Card page"]';
+
+/**
+ * Frames let by, so anything the page is waiting on has a chance to land.
+ *
+ * jsdom runs animation frames off its own timer, so the only way to let a few
+ * go by is to wait for real ones.
+ */
+async function passFrames(): Promise<void> {
+  for (let frame = 0; frame < FRAMES_TO_PASS; frame += 1) {
+    await act(async () => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, FRAME_MILLISECONDS);
+      });
+    });
+  }
+}
 
 /** Whatever a test replaced or mounted, undone after it. */
 const restores: Array<() => void> = [];
@@ -127,16 +159,43 @@ async function renderView(): Promise<HTMLElement> {
   return container;
 }
 
-/** Every card face on the page. */
+/** Every card face the view laid out, across all of its sheets. */
 function cardFaces(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll("article"));
 }
 
-/** The sheet the cards are laid out on. */
-function pageSurface(container: HTMLElement): HTMLElement {
-  const page = container.querySelector<HTMLElement>("section");
+/** The sheets the cards are laid out on, in the order they print. */
+function sheetSurfaces(container: HTMLElement): HTMLElement[] {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(SHEET_SELECTOR),
+  );
+}
 
-  if (page === null) {
+/**
+ * The faces on one sheet, which is what a capacity counts.
+ *
+ * A capacity is how many cards a single piece of paper holds. The page runs
+ * over as many pieces as the set needs, so counting every face on it answers a
+ * different question entirely.
+ */
+function facesOnSheet(
+  container: HTMLElement,
+  index = 0,
+): HTMLElement[] {
+  const sheet = sheetSurfaces(container)[index];
+
+  if (sheet === undefined) {
+    throw new Error(`The view rendered no sheet ${index + 1}`);
+  }
+
+  return Array.from(sheet.querySelectorAll("article"));
+}
+
+/** The first sheet, which is the one a paper's own settings are read off. */
+function pageSurface(container: HTMLElement): HTMLElement {
+  const page = sheetSurfaces(container)[0];
+
+  if (page === undefined) {
     throw new Error("The view rendered no page");
   }
 
@@ -366,18 +425,31 @@ afterEach(() => {
 describe("CatalogView", () => {
   it("fills the page with cards from the bundled catalog", async () => {
     const container = await renderView();
-    const capacity = capacityAt({});
-    // jsdom lays nothing out, so every entry is the one card it is and the
-    // sheet fills exactly. The catalog runs well past a sheet, so the ones
-    // past the end of it are never mounted.
-    const shown = CATALOG_CARDS.slice(0, capacity);
 
-    expect(CATALOG_CARDS.length).toBeGreaterThan(capacity);
-    expect(cardFaces(container)).toHaveLength(capacity);
+    // jsdom lays nothing out, so every entry is the one card it is and each
+    // sheet fills exactly.
+    expect(facesOnSheet(container)).toHaveLength(capacityAt({}));
+    expect(cardFaces(container)).toHaveLength(CATALOG_CARDS.length);
 
-    for (const card of shown) {
+    for (const card of CATALOG_CARDS) {
       expect(container.textContent).toContain(nameOf(card));
     }
+  });
+
+  // A set longer than a sheet used to stop at the end of the first one, on
+  // screen and on paper both, with nothing saying the rest was there.
+  it("runs a set longer than a sheet onto the sheets it needs", async () => {
+    const container = await renderView();
+    const capacity = capacityAt({});
+    const sheets = sheetSurfaces(container);
+
+    expect(CATALOG_CARDS.length).toBeGreaterThan(capacity);
+    expect(sheets).toHaveLength(
+      Math.ceil(CATALOG_CARDS.length / capacity),
+    );
+    expect(sheets.at(-1)?.getAttribute("aria-label")).toBe(
+      `Card page ${sheets.length} of ${sheets.length}`,
+    );
   });
 
   it("offers every choice the packages ship, for the cards and for the page", async () => {
@@ -415,7 +487,7 @@ describe("CatalogView", () => {
 
     await pick(container, smallest.name);
 
-    const faces = cardFaces(container);
+    const faces = facesOnSheet(container);
 
     expect(faces).toHaveLength(capacityAt({ preset: smallest.id }));
     expect(faces.length).toBeGreaterThan(capacityAt({}));
@@ -493,7 +565,7 @@ describe("CatalogView", () => {
     expect(
       pageSurface(container).style.getPropertyValue("--page-width"),
     ).toBe(`${landscape.widthMillimetres}mm`);
-    expect(cardFaces(container)).toHaveLength(
+    expect(facesOnSheet(container)).toHaveLength(
       capacityAt({ sheet: landscape }),
     );
   });
@@ -524,12 +596,12 @@ describe("CatalogView", () => {
     for (const paper of PAGE_SIZES) {
       await pick(container, paper.name);
 
-      expect(cardFaces(container)).toHaveLength(
+      expect(facesOnSheet(container)).toHaveLength(
         capacityAt({
           sheet: SheetLayout.default().with({ size: paper.id }),
         }),
       );
-      expect(cardFaces(container)).toHaveLength(9);
+      expect(facesOnSheet(container)).toHaveLength(9);
     }
   });
 
@@ -549,7 +621,10 @@ describe("CatalogView", () => {
     );
   });
 
-  it("prints when the reader asks it to", async () => {
+  // A browser draws the page as it stands the moment it is asked, and the
+  // sheets arrive over several frames, so the button takes the request and
+  // holds it until the page has finished rather than printing a part of one.
+  it("prints when the reader asks it to, once the page is finished", async () => {
     const container = await renderView();
     const print = vi.fn();
     const original = window.print;
@@ -559,9 +634,16 @@ describe("CatalogView", () => {
       window.print = original;
     });
 
-    await press(container, "Print");
+    await press(container, PRINT_LABEL);
+    await passFrames();
 
+    // Once, whether it went straight through or waited for the page first.
+    // Which of those it does depends on how far the page had got, and both
+    // are right; printing twice for one press never is. The waiting itself is
+    // pinned in the controls' own tests, where the page state is given rather
+    // than raced for.
     expect(print).toHaveBeenCalledTimes(1);
+    expect(container.textContent).not.toContain(PRINT_WAITING_LABEL);
   });
 
   // A CSS millimetre is not a millimetre, so a card on screen is only life
@@ -758,7 +840,7 @@ describe("CatalogView", () => {
       await press(container, CLEAR_LABEL);
 
       expect(container.textContent).toContain(statement);
-      expect(cardFaces(container)).toHaveLength(capacityAt({}));
+      expect(cardFaces(container)).toHaveLength(CATALOG_CARDS.length);
     });
 
     it("keeps nothing from a document once it is cleared", async () => {

@@ -1,57 +1,96 @@
 /*
- * The stat block, set as running text: label then value, field after field,
- * wrapping wherever the line runs out. Spacing, rule weight and type size come
- * from the card these sit on, which declares them against its own live font
- * size.
+ * The property strip: equal cells under the band, a label over a value, ruled
+ * above, below and between. Spacing, rule weight and type size come from the
+ * card these sit on, which declares them against its own sizes.
  *
- * Text rather than cells because the number of fields and the length of each
- * one are the card's business, not the layout's. A short stat block takes one
- * line, a long one takes three, and neither needs a column width chosen in
- * advance that the other would be wrong at.
+ * Rules and no fill, in every theme. A fill heavy enough to carry the boundary
+ * on its own drinks ink and grays out flat on a mono laser printer, which is
+ * what most of these are printed on, so the rules carry it instead.
  *
- * The rule around it is what separates it from the body, not the tint. A tint
- * heavy enough to carry the boundary by itself would cost a page of ink and
- * still gray out flat on a mono laser printer.
+ * The label is chrome and takes the size the reader picked. The value is not:
+ * it is content, so it follows the body down and a card that had to set its
+ * body small sets its values small with it.
  */
 .statBlock {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(var(--card-stat-columns), 1fr);
   margin: 0;
-  padding: var(--card-space-tight) var(--card-space-normal);
-  border: var(--card-rule-width) solid var(--card-color-border);
-  border-radius: calc(
-    var(--card-font-size) * var(--card-scale-radius)
-  );
-  background: var(--card-color-surface-tinted);
-  font-size: var(--card-font-size-meta);
+  padding: var(--card-space-tight) 0;
+  border-top: var(--card-rule-width) solid var(--card-color-border);
+  border-bottom: var(--card-rule-width) solid var(--card-color-border);
   line-height: var(--line-height-tight);
-}
-
-/* Inline, so a field that will not fit breaks across lines like any prose. */
-.statField {
-  display: inline;
+  text-align: center;
 }
 
 /*
- * A dot between neighbours, and nothing before the first. The spaces around it
- * are part of the content rather than margins, so the line can break either
- * side of the dot instead of carrying it along with the words it sits between.
- *
- * The empty alt text keeps it out of the accessibility tree: it separates
- * fields for the eye, and the list markup already separates them for anything
- * reading the card aloud.
+ * A rule between neighbours, taken off again on the cell that opens a row.
+ * The component works out which those are, because how many cells go across is
+ * a custom property and `nth-child` cannot read one.
  */
-.statField + .statField::before {
-  content: " · " / "";
-  color: var(--card-color-text-muted);
+.statField {
+  /* A grid item will not shrink below its content unless it is told it may. */
+  min-width: 0;
+  /*
+   * The gutter belongs to the cell rather than to what is in it, so the label
+   * and the value both keep clear of the rules on either side by the same
+   * amount. A word set right up against the rule reads as though it is being
+   * cut off by it.
+   *
+   * Half the tight space rather than all of it. Every millimetre here comes
+   * off the widest label, which answers for it by stepping down, and the
+   * labels are already the smallest type on the card: enough of a gap to read
+   * as a gap is all this is for.
+   */
+  padding-inline: calc(var(--card-space-tight) / 2);
+  border-left: var(--card-rule-width) solid var(--card-color-border);
 }
 
+.statFieldRowStart {
+  border-left: 0;
+}
+
+/*
+ * The label is set in the body face rather than the display one, and without
+ * tracking, which is the one place the card departs from "display face on
+ * every piece of chrome". A cell is a quarter of a card and a label may be a
+ * single word of ten letters; a display face at that size does not fit a word
+ * that long into that width, and what gives is the word breaking in half,
+ * which reads far worse than caps set in the workhorse. The reference sets its
+ * own labels condensed for the same reason.
+ */
 .statLabel {
-  display: inline;
   color: var(--card-color-accent);
-  font-size: var(--card-font-size-stat-label);
+  font-family: var(--card-font-family-display);
+  /*
+   * Stepped down by whatever it takes for the longest word to sit on one line
+   * in its cell, worked out in `StatBlock.hooks.ts` and held to the layout's
+   * legibility floor here. A label is chrome and does not follow the body, but
+   * it does answer for its own width, the same way the title does.
+   */
+  font-size: max(calc(var(--card-font-size-stat-label) * var(--card-stat-label-scale, 1)),
+      var(--card-font-size-label-minimum));
   font-weight: var(--font-weight-bold);
+  /* The backstop, for a label so long that the floor is reached before it
+     fits: it breaks at a syllable rather than wherever the line ran out.
+     Free at every size where the label already fits on one line. */
+  hyphens: auto;
+  text-transform: uppercase;
 }
 
+/*
+ * A value that will not fit on one line wraps inside its cell and the strip
+ * grows. Hyphenation is offered first so a long single word breaks where a
+ * reader would break it, and `break-word` is the backstop for one that cannot
+ * be hyphenated: without it the value runs out of the side of the card, where
+ * the fitting routine cannot see it.
+ *
+ * It keeps clear of the rules by the cell's own gutter, the same as the label.
+ */
 .statValue {
-  display: inline;
-  margin: 0;
+  margin: calc(var(--card-space-tight) / 2) 0 0;
+  font-size: max(calc(var(--card-font-size) * var(--card-scale-stat-value)),
+      var(--card-font-size-minimum));
+  hyphens: auto;
+  overflow-wrap: break-word;
 }

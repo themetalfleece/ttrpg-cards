@@ -13,6 +13,11 @@ export interface PageControlsProps {
   orientation: PageOrientation;
   /** Called with the orientation the reader picked. */
   onOrientationChange: (orientation: PageOrientation) => void;
+  /**
+   * Whether the page is finished and would print as what is on screen. A
+   * print asked for before this is true waits for it.
+   */
+  printable: boolean;
   /** Passed through for a consumer that positions the controls. */
   className?: string | undefined;
 }

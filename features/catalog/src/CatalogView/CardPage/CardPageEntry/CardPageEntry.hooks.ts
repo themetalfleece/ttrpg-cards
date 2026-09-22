@@ -6,9 +6,10 @@ import type { UseReportedFaceCountOptions } from "./CardPageEntry.types";
 export function useReportedFaceCount({
   cardId,
   faceCount,
+  measured,
   onFaceCount,
 }: UseReportedFaceCountOptions): void {
   useEffect(() => {
-    onFaceCount({ cardId, faceCount });
-  }, [cardId, faceCount, onFaceCount]);
+    onFaceCount({ cardId, faceCount, measured });
+  }, [cardId, faceCount, measured, onFaceCount]);
 }

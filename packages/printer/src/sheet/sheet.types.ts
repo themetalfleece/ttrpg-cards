@@ -50,8 +50,24 @@ export interface SheetItem {
   readonly id: string;
 }
 
+/**
+ * One entry's cards on one sheet.
+ *
+ * An entry is not always whole on a sheet: when its cards will not all fit in
+ * what is left, the ones that do go there and the rest carry to the next. So a
+ * sheet holds windows onto entries rather than entries.
+ */
+export interface SheetPlacement<Item extends SheetItem> {
+  /** The entry these cards belong to. */
+  readonly item: Item;
+  /** Which of its cards this sheet starts at, counted from zero. */
+  readonly from: number;
+  /** How many of its cards this sheet holds. */
+  readonly count: number;
+}
+
 /** What packing a sheet needs. */
-export interface SheetFillOptions<Item extends SheetItem> {
+export interface SheetPackingOptions<Item extends SheetItem> {
   /** The entries to draw from, in reading order. */
   readonly items: readonly Item[];
   /** The geometry each is cut to, which is what decides how many fit. */

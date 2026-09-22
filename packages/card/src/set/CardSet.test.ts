@@ -30,12 +30,20 @@ import {
 /**
  * The layout the long fixtures are written against.
  *
- * The smallest type is pinned here rather than taken from the shipping text
- * size, because these tests are about where a split falls and the fixtures are
- * written to overrun a card by a known amount. How large the app sets type is
- * a reader's setting, and moving it should not read here as a split that broke.
+ * Every geometry the split depends on is pinned here rather than taken from
+ * the shipping defaults, because these tests are about where a split falls and
+ * the fixtures are written to overrun a card by a known amount. How large the
+ * app sets type and how much blank it keeps inside the trim are both product
+ * decisions a reader feels, and moving either should not read here as a split
+ * that broke.
  */
 const fixtureLayout = CardLayout.default().with({
+  margins: {
+    topMillimetres: 4,
+    rightMillimetres: 4,
+    bottomMillimetres: 4,
+    leftMillimetres: 4,
+  },
   fontSizeRange: { minimumMillimetres: 1.9, maximumMillimetres: 3.5 },
 });
 
@@ -182,7 +190,9 @@ describe("CardSet.split", () => {
     expect(first?.footer).toEqual(longBodyCard.footer);
   });
 
-  it("carries the name onto a continuation and the stat block nowhere", () => {
+  // The badge is what the card is rather than a repeat of something the first
+  // card said, so somebody holding only the second half can still read it off.
+  it("carries the name and the badge onto a continuation, and nothing else", () => {
     const set = CardSet.split({
       card: longBodyCard,
       fits: fitsFixture,
@@ -190,8 +200,8 @@ describe("CardSet.split", () => {
     const continuation = set.cards[1];
 
     expect(continuation?.name).toEqual(longBodyCard.name);
+    expect(continuation?.badge).toEqual(longBodyCard.badge);
     expect(continuation?.meta).toEqual([]);
-    expect(continuation?.badge).toBeUndefined();
     expect(continuation?.subtitle).toBeUndefined();
     expect(continuation?.footer).toBeUndefined();
   });

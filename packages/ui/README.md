@@ -32,6 +32,23 @@ adds only document-level resets.
 What a card is drawn in is the worked example. Its colours and its type scale are read only by
 the card face, so they live beside it and are bundled with the renderer rather than the document.
 
+## The card face
+
+Top to bottom: a band holding the title, the stat block as a strip of equal cells under it, the
+body, and a footer rule with the first entry at the left and the last at the right.
+
+The band reserves the same width at each end whether or not anything sits there, so the title is
+centred on the band rather than on the room the markers left, and a card of a set measures the
+same as one standing alone.
+
+**What the reader reads is fitted, and the chrome is not.** `--card-font-size` is what the body
+settled at once it was measured; `--card-font-size-chrome` is the text size the reader picked and
+does not move. The band, the labels, the footer and the spaces between regions read the second,
+which is what lets two cards of one entry carry different amounts of text and still read as a
+pair. Two pieces of chrome move, and both only for their own width: a long name steps down until
+it fits the band and takes a second line only once it has run out of room to shrink into, and the
+strip's labels step down together until the longest word in each sits on one line in its cell.
+
 ## Card colour themes
 
 A card is drawn in one of the themes listed in `CARD_THEMES`, chosen per card:
@@ -51,10 +68,55 @@ So **adding a theme is a block of values in `CardFace.themes.css` and an entry i
 own. Leave `theme` off and the card takes the theme of the surface it stands on, so a sheet can
 be themed in one place and a card can still choose for itself.
 
-Only the neutral theme follows the colour scheme, and only on a screen: the dark override is
-scoped to `@media screen`, so a card printed from a dark page is the card a light page would have
-printed. A chosen theme does not follow the scheme at all, because parchment is parchment at
-midnight.
+**No theme follows the desktop's colour scheme, neutral included.** A card is paper: it sits on a
+white sheet whatever the screen is set to, and it is printed on white. A palette that went dark at
+night would be a dark rectangle on a white sheet, and it would print as an empty outline or a page
+of solid ink. The app's own surface may go dark; what is going to be cut out may not.
+
+## Card typefaces
+
+A card is set in one of the pairings listed in `CARD_TYPEFACES`, on the same terms as a theme:
+
+```tsx
+<CardFace card={card} layout={layout} typeface="poster" />
+```
+
+The names live in [`@ttrpg-cards/card`](../card). The faces live in
+[`src/fonts`](./src/fonts), vendored beside their OFL licences and declared once in
+[`fonts.css`](./src/fonts/fonts.css); a vendored family belongs to the package rather than to the
+card face, which is only its first consumer. Every URL is relative, so nothing is fetched from a
+font service at build time or at run time, and
+[`fonts.test.ts`](./src/fonts/fonts.test.ts) is what holds that true. A browser fetches a face
+only once a rule asks for it, so the pairings nobody picked cost disk and no bandwidth.
+
+[`CardFace.typefaces.css`](./src/CardFace/CardFace.typefaces.css) holds the pairings themselves,
+which name families and never declare one. Nothing in the cascade complains when a pairing asks
+for a family nobody vendored, so
+[`CardFace.typefaces.test.ts`](./src/CardFace/CardFace.typefaces.test.ts) checks the two files
+against each other.
+
+A pairing carries two corrections as well as its faces, because a face does not draw where the
+nominal size says it will. `--card-name-centre` moves the title so it is centred on its capitals
+rather than on its line box, and `--card-figure-scale` sets the rank so it is drawn the same
+height whichever face it is in: Almendra's figures come out a quarter shorter than Fredoka's at
+the same size. Both are measured in a browser rather than worked out, and both belong to the
+file, so a face revendored at another weight is re-measured and the rest are left alone.
+
+**A pairing is not a theme, in one way that matters.** It changes how wide the text runs, so it
+changes where an entry splits: `useCardSet` takes it and hands it to the off-page card every
+measurement is made in. Set it on a surface above the cards and the renders would be right while
+every split was measured in the fallback face.
+
+The property labels are the single place the card does not use the display face. A cell is a
+quarter of a card and a label can be one word of ten letters; a display face at that size does not
+fit that word into that width, and what gives is the word breaking in half.
+
+They do not fit in the workhorse at the general floor either, which is why the strip fits its own
+labels: `StatBlock.hooks.ts` measures the longest word in each cell and steps every label on the
+strip down together until it sits on one line. Every label takes the same step, because a row of
+labels at four sizes reads as a mistake. The floor they stop at is `--card-scale-label-floor` of
+the card's legibility floor, because a word in bold capitals holds at a size prose does not, and
+below it they wrap and hyphenate as before.
 
 Themes are cut for paper, and
 [`CardFace.themes.test.ts`](./src/CardFace/CardFace.themes.test.ts) holds every one of them to it
@@ -68,8 +130,10 @@ conditions themselves:
   either across the two fills or along the rule drawn between them. This is the check that
   matters on a mono laser printer: a theme separating its stat block from its body by hue alone
   prints as one flat gray rectangle.
-- **The tinted region stays a tint.** A fill heavy enough to carry a boundary by itself drinks
-  ink and grays out badly, so the rule around it does that job instead.
+- **The card carries one fill, and it is the position pill.** Nothing sits behind the properties
+  or the body, so every boundary on the card is a rule and the check above is measuring the rule
+  rather than a step between two tints. A fill heavy enough to carry a boundary by itself drinks
+  ink and grays out badly on the printer most of these come off.
 - **On paper, the card's fills clear a luminance floor.** Contrast is symmetric and scores a
   black card with white text exactly as well as the white card we meant, so it cannot tell a
   printable card from an unprintable one. The floor can.
@@ -166,10 +230,15 @@ that has already decided a size.
 
 ## The card set
 
-`CardSetView` is the component to reach for when the content might not fit. It takes the same
-card and layout, and renders the set that card makes: one card most of the time, and a card plus
-its continuations when the content will not fit at the bottom of the fitting range. Nothing is
-ever cut, and no word is ever broken across cards.
+`useCardSet` is what answers "how many cards is this entry", and `CardSetView` draws the answer
+for a caller that wants the set read as a set: a preview, a story, one entry beside its
+continuations. It takes the same card and layout, and renders one card most of the time, and a
+card plus its continuations when the content will not fit at the bottom of the fitting range.
+Nothing is ever cut, and no word is ever broken across cards.
+
+A sheet takes the hook and not the component, because a sheet places cards rather than entries:
+an entry's cards fill the room that is left and the rest carry to the next sheet, so there is
+nothing there for a set to be drawn as.
 
 Where the split falls is `CardSet.split` in [`@ttrpg-cards/card`](../card), which is pure and
 tested on its own. `CardSetView.hooks.ts` answers the one question it asks the honest way:
@@ -183,9 +252,11 @@ searches interleave, since each runs to completion inside its own microtask, so 
 root are built on first use and emptied rather than torn down. A sheet of a hundred cards would
 otherwise allocate a fiber root and a DOM node each, most of them only to be told the card fits.
 
-A split set is set at the bottom of the range throughout. The split happened because the floor
-was not enough, so the first card is at the floor by definition, and letting a shorter
-continuation grow would set one entry in two sizes.
+**Split first, size second.** The split is settled at the floor, and then every card of the set
+fits itself, the first one included. A continuation carrying two sentences is set large rather
+than left at the floor in a mostly empty card. The chrome does not move with it, so two cards of
+one entry still read as a pair, and nothing in the sizing pass can move content between cards,
+because by then each card is a card of its own.
 
 **A caller that already knows the set hands it over**, through the `set` prop, and the view
 draws it rather than working one out. That is the same escape hatch `CardFace` keeps for its

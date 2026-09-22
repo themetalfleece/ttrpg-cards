@@ -7,6 +7,13 @@
  * declared. They are absolute by the time they inherit down, so a stat block
  * or a body block reads one property rather than repeating the arithmetic.
  *
+ * Two sizes drive them, and the split is the point. `--card-font-size-chrome`
+ * is the text size the reader picked and does not move; `--card-font-size` is
+ * what the body settled at once it was measured. The band, the property
+ * labels, the footer and the spaces between regions read the first, so two
+ * cards of one entry carry identical chrome however differently their bodies
+ * are set. The body and the values in the strip read the second.
+ *
  * Text is free to overflow the face. Keeping it inside is the fitting
  * routine's job, and hiding the overflow would hide that from whoever is
  * looking at the card.
@@ -34,11 +41,13 @@
    * theme a card is drawn in.
    */
   --card-scale-name: 1.7;
-  --card-scale-badge: 1.4;
-  --card-scale-badge-diameter: 1.9;
+  --card-scale-badge: 1.15;
+  --card-scale-band-end: 1.7;
   --card-scale-subtitle: 0.95;
-  --card-scale-meta: 0.85;
-  --card-scale-stat-label: 0.7;
+  --card-scale-stat-label: 0.62;
+  --card-scale-label-floor: 0.5;
+  --card-scale-stat-value: 0.85;
+  --card-scale-position: 0.7;
   --card-scale-footer: 0.8;
   --card-scale-space-tight: 0.25;
   --card-scale-space-normal: 0.55;
@@ -46,55 +55,89 @@
   --card-scale-rule: 0.06;
   --card-scale-radius: 0.8;
 
+  /*
+   * The spaces between regions, and the rules drawn along them. Chrome, so
+   * they come off the size the reader picked: a gap that moved with the body
+   * fit would put the two cards of one entry at different heights.
+   */
   --card-space-tight: calc(
-    var(--card-font-size) * var(--card-scale-space-tight)
+    var(--card-font-size-chrome) * var(--card-scale-space-tight)
   );
   --card-space-normal: calc(
-    var(--card-font-size) * var(--card-scale-space-normal)
+    var(--card-font-size-chrome) * var(--card-scale-space-normal)
   );
   --card-space-loose: calc(
-    var(--card-font-size) * var(--card-scale-space-loose)
+    var(--card-font-size-chrome) * var(--card-scale-space-loose)
   );
   --card-rule-width: calc(
-    var(--card-font-size) * var(--card-scale-rule)
+    var(--card-font-size-chrome) * var(--card-scale-rule)
+  );
+  --card-radius: calc(
+    var(--card-font-size-chrome) * var(--card-scale-radius)
+  );
+
+  /* The air inside the body, which does follow what the body settled at. */
+  --card-body-space-tight: calc(
+    var(--card-font-size) * var(--card-scale-space-tight)
+  );
+  --card-body-space-normal: calc(
+    var(--card-font-size) * var(--card-scale-space-normal)
+  );
+  --card-body-space-loose: calc(
+    var(--card-font-size) * var(--card-scale-space-loose)
   );
 
   /*
-   * The type scale, resolved once. Anything set smaller than the body stops at
-   * the layout's floor: a ratio moves with the body, so on its own it would
-   * follow the fitting routine down past the point where the text can be read.
+   * The chrome's type scale, resolved once. Everything here is a ratio of the
+   * picked size rather than the fitted one, and anything set smaller than the
+   * body stops at the layout's floor: a ratio moves with what it multiplies,
+   * so on its own it would follow a small card past the point it can be read.
    */
-  --card-font-size-name: calc(
-    var(--card-font-size) * var(--card-scale-name)
-  );
   --card-font-size-badge: calc(
-    var(--card-font-size) * var(--card-scale-badge)
+    var(--card-font-size-chrome) * var(--card-scale-badge)
   );
   --card-font-size-subtitle: max(
-    calc(var(--card-font-size) * var(--card-scale-subtitle)),
+    calc(var(--card-font-size-chrome) * var(--card-scale-subtitle)),
     var(--card-font-size-minimum)
   );
   --card-font-size-stat-label: max(
-    calc(var(--card-font-size) * var(--card-scale-stat-label)),
+    calc(var(--card-font-size-chrome) * var(--card-scale-stat-label)),
     var(--card-font-size-minimum)
   );
-  --card-font-size-meta: max(
-    calc(var(--card-font-size) * var(--card-scale-meta)),
+  /*
+   * The floor a property label may be stepped down to, which is below the one
+   * the rest of the card keeps.
+   *
+   * The general floor is the smallest size prose can be read at, and every
+   * region set smaller than the body stops there. A label is not prose: it is
+   * one word, in capitals, in bold, read as a heading for the value under it
+   * rather than along a line. It holds at a size prose would not.
+   *
+   * It has to. A cell is a quarter of the card, `COMPONENTS` is ten letters,
+   * and at the general floor that word is wider than that cell in every face
+   * the app ships, at every text size. The only things below this floor are a
+   * word broken in half and a card that lies about how many components a
+   * spell takes.
+   */
+  --card-font-size-label-minimum: calc(
+    var(--card-font-size-minimum) * var(--card-scale-label-floor)
+  );
+  --card-font-size-position: max(
+    calc(var(--card-font-size-chrome) * var(--card-scale-position)),
     var(--card-font-size-minimum)
   );
   --card-font-size-footer: max(
-    calc(var(--card-font-size) * var(--card-scale-footer)),
+    calc(var(--card-font-size-chrome) * var(--card-scale-footer)),
     var(--card-font-size-minimum)
   );
 
-  /* Wide enough for the glyphs a badge holds, and round because it is a pill. */
-  --card-badge-size: calc(
-    var(--card-font-size-badge) * var(--card-scale-badge-diameter)
+  /* What each end of the band reserves, which is the rank behind its rule at
+     one end and the same width kept empty at the other. The rule and the air
+     after it are part of what the end holds, so the rank keeps its own room. */
+  --card-band-end: calc(
+    var(--card-font-size-badge) * var(--card-scale-band-end) +
+      var(--card-space-tight)
   );
-
-  /* What the separators inside the card are drawn at, so they match its border. */
-  --separator-thickness: var(--card-rule-width);
-  --separator-color: var(--card-color-border);
 
   display: flex;
   flex-direction: column;
@@ -104,9 +147,7 @@
   padding: var(--card-margin-top) var(--card-margin-right)
     var(--card-margin-bottom) var(--card-margin-left);
   border: var(--card-rule-width) solid var(--card-color-border);
-  border-radius: calc(
-    var(--card-font-size) * var(--card-scale-radius)
-  );
+  border-radius: var(--card-radius);
   background: var(--card-color-surface);
   color: var(--card-color-text);
   /*
@@ -117,7 +158,7 @@
    */
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
-  font-family: var(--font-family-serif);
+  font-family: var(--card-font-family-body);
   font-size: var(--card-font-size);
   line-height: var(--line-height-body);
   overflow: visible;
@@ -128,28 +169,50 @@
    * width however far its text pokes out, so sideways overflow is invisible
    * both to the routine and to the technique it measures with. Breaking the
    * word turns it into height, which is the axis that is actually watched.
-   *
-   * Not the `overflow-wrap` the stat cells used to carry. That one could never
-   * fire, because each cell was already at least as wide as its longest word.
-   * The stat block is running text in a block now and has no such floor.
    */
   overflow-wrap: break-word;
 }
 
-.header {
+/*
+ * The band across the top: the position at one end, the badge at the other and
+ * the title between them.
+ *
+ * Both ends reserve the same width whether or not anything sits in them, which
+ * is what keeps the title centred on the band rather than on the room the
+ * markers happened to leave. It is also what makes a card of a set measure the
+ * same as one standing alone, so the split does not have to be measured with a
+ * position indicator stood in for.
+ */
+.band {
   display: flex;
-  flex-direction: column;
+  flex: none;
   gap: var(--card-space-tight);
+  align-items: center;
+  min-height: calc(var(--card-band-end) + var(--card-space-tight));
+  padding: calc(var(--card-space-tight) / 2) var(--card-space-tight);
+  border: var(--card-rule-width) solid var(--card-color-border);
+  border-radius: var(--card-radius);
 }
 
-.heading {
+.bandEnd {
   display: flex;
+  flex: none;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--card-space-normal);
+  width: var(--card-band-end);
+}
+
+/*
+ * The end the rank sits in, stretched to the band rather than centred in it,
+ * because the rule dividing it off is drawn down the side of what sits here
+ * and has to reach both edges of the band.
+ */
+.bandEndTrailing {
+  align-self: stretch;
+  justify-content: flex-end;
 }
 
 .name {
+  flex: 1;
   /*
    * A flex item will not shrink below its longest word unless it is told it
    * may, and breaking the word does not lower that floor. Without this the
@@ -157,45 +220,102 @@
    */
   min-width: 0;
   margin: 0;
-  font-size: var(--card-font-size-name);
-  font-weight: var(--font-weight-bold);
+  /* The overflow the fitting hook reads the title's own width back from. */
+  overflow: hidden;
+  font-family: var(--card-font-family-display);
+  /*
+   * Resolved here rather than on the card, because the fitting hook writes
+   * `--card-name-scale` onto this element: a property computed on an ancestor
+   * would never see it. Held to the layout's floor, so a long name on a small
+   * card takes a second line instead of shrinking past being readable.
+   */
+  font-size: max(
+    calc(
+      var(--card-font-size-chrome) * var(--card-scale-name) *
+        var(--card-name-scale, 1)
+    ),
+    var(--card-font-size-minimum)
+  );
+  font-weight: var(--card-display-weight);
   line-height: var(--line-height-tight);
+  text-align: center;
+  white-space: nowrap;
+  /*
+   * Centred on its capitals rather than on its line box, which is what a
+   * reader sees as centred. The correction belongs to the face and is set
+   * with it in `CardFace.typefaces.css`; drawn rather than laid out, so the
+   * band is the same height as it was and nothing re-measures.
+   */
+  transform: translateY(var(--card-name-centre, 0));
+}
+
+/* Once the title has run out of room to shrink into, it takes a second line
+   and the band grows to hold it. */
+.nameWraps {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 /*
- * A filled disc, widening to a pill when the badge holds more than a glyph or
- * two. The badge is the one place on the face where colour carries meaning
- * rather than decorating, so it takes the accent and its contrast pair.
+ * The rank at the end of the band, behind a rule rather than in a box.
+ *
+ * A box here is a third outline inside two others, the card's and the band's,
+ * and three rounded corners nested in one corner read as a mistake rather than
+ * as structure. The rule says the same thing, that the glyph beyond it is not
+ * part of the title, with the mark the card uses to separate everything else.
+ *
+ * It is drawn down the band's full height, edge to edge, which is what the
+ * negative margins are for: the band keeps a little padding above and below
+ * its contents, and a rule stopping short of the outline reads as a tick
+ * rather than as a division. Drawn in the border colour rather than the
+ * accent, so it belongs to the card's rules and not to the glyph beside it.
  */
 .badge {
   display: inline-flex;
-  flex: none;
+  flex: 1;
+  align-self: stretch;
   align-items: center;
   justify-content: center;
-  box-sizing: border-box;
-  min-width: var(--card-badge-size);
-  height: var(--card-badge-size);
-  padding-inline: var(--card-space-tight);
-  border-radius: var(--radius-pill);
-  background: var(--card-color-badge-surface);
-  color: var(--card-color-badge-text);
-  font-size: var(--card-font-size-badge);
-  /* Text figures hang below the baseline, which sits a digit low in the disc. */
+  margin-block: calc(var(--card-space-tight) / -2);
+  padding-left: var(--card-space-tight);
+  border-left: var(--card-rule-width) solid var(--card-color-border);
+  /*
+   * Ink rather than the accent. The rank is one glyph with no word around it
+   * to be read from, so it takes the strongest colour the card has rather
+   * than the one the footer uses to sit back from the body.
+   */
+  color: var(--card-color-text);
+  font-family: var(--card-font-family-display);
+  /* Text figures hang below the baseline, which sits a digit low in a cell
+     the rest of the band is centred in. */
+  font-size: calc(
+    var(--card-font-size-badge) * var(--card-figure-scale, 1)
+  );
   font-variant-numeric: lining-nums;
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--card-display-weight);
   line-height: 1;
 }
 
 /*
- * Where a card sits in its set, such as 1/2. It shares the heading row with
- * the name and is set smaller, so showing it costs the card no height at all.
+ * Where a card sits in its set, such as 1/2, at the other end of the band. The
+ * one filled mark on the card, because it is the thing a reader holding half
+ * an entry is looking for.
  */
 .position {
   flex: none;
-  color: var(--card-color-text-muted);
-  font-size: var(--card-font-size-meta);
+  padding-inline: var(--card-space-tight);
+  border-radius: var(--radius-pill);
+  background: var(--card-color-badge-surface);
+  color: var(--card-color-badge-text);
+  font-family: var(--card-font-family-display);
+  /* Figures again, so the same correction applies: a face that draws them
+     short draws them short here too. */
+  font-size: calc(
+    var(--card-font-size-position) * var(--card-figure-scale, 1)
+  );
   font-variant-numeric: lining-nums tabular-nums;
-  line-height: var(--line-height-tight);
+  font-weight: var(--card-display-weight);
+  line-height: var(--line-height-body);
   white-space: nowrap;
 }
 
@@ -205,23 +325,34 @@
   font-size: var(--card-font-size-subtitle);
   font-style: italic;
   line-height: var(--line-height-tight);
+  text-align: center;
 }
 
 .body {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: var(--card-space-normal);
+  gap: var(--card-body-space-normal);
 }
 
+/*
+ * The footer sits on a rule at the bottom of the card, first entry at the left
+ * and last at the right. Two entries are what a card usually carries, and
+ * spreading them is what puts one in each corner without either being named.
+ */
 .footer {
   display: flex;
+  flex: none;
   flex-wrap: wrap;
   gap: var(--card-space-normal);
+  justify-content: space-between;
   margin: 0;
-  padding: 0;
-  color: var(--card-color-text-muted);
+  padding: var(--card-space-tight) 0 0;
+  border-top: var(--card-rule-width) solid var(--card-color-border);
+  color: var(--card-color-accent);
+  font-family: var(--card-font-family-display);
   font-size: var(--card-font-size-footer);
+  font-weight: var(--card-display-weight);
   line-height: var(--line-height-tight);
   list-style: none;
 }

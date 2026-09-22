@@ -5,7 +5,9 @@ import {
 } from "@ttrpg-cards/card";
 import {
   CardFace,
+  cardFonts,
   contentFitsInside,
+  remeasureWhenFacesLoad,
 } from "@ttrpg-cards/ui/CardFace";
 import { createElement, useEffect, useState } from "react";
 import { flushSync } from "react-dom";
@@ -16,8 +18,10 @@ import {
   MEASURING_POSITION,
 } from "./CardSetView.constants";
 import type {
+  CardSetSoFar,
   MeasuredCardSet,
   MeasuringSurface,
+  SplitOutcome,
   UseCardSetOptions,
 } from "./CardSetView.types";
 
@@ -74,8 +78,12 @@ function measuringSurface(): MeasuringSurface {
 function splitByMeasurement({
   card,
   layout,
-}: UseCardSetOptions): CardSet {
+  typeface,
+}: UseCardSetOptions): SplitOutcome {
   const { frame, root } = measuringSurface();
+  // The fonts the candidates were measured in, read off the last one
+  // rendered: they all carry the same pairing.
+  let fonts: readonly string[] = [];
 
   const fitsWith = (options: {
     candidate: Card;
@@ -86,6 +94,7 @@ function splitByMeasurement({
         createElement(CardFace, {
           card: options.candidate,
           layout,
+          typeface,
           position: options.position,
           fontSizeMillimetres:
             layout.fontSizeRange.minimumMillimetres,
@@ -95,21 +104,30 @@ function splitByMeasurement({
 
     const face = frame.querySelector("article");
 
-    return face !== null && contentFitsInside(face);
+    if (face === null) {
+      return false;
+    }
+
+    fonts = cardFonts(face);
+
+    return contentFitsInside(face);
   };
 
   try {
     // A card that fits whole is a set of one and shows no indicator, so it is
     // asked without one. Every candidate after this one belongs to a set.
     if (fitsWith({ candidate: card, position: undefined })) {
-      return CardSet.of(card);
+      return { set: CardSet.of(card), fonts };
     }
 
-    return CardSet.split({
-      card,
-      fits: (candidate) =>
-        fitsWith({ candidate, position: MEASURING_POSITION }),
-    });
+    return {
+      set: CardSet.split({
+        card,
+        fits: (candidate) =>
+          fitsWith({ candidate, position: MEASURING_POSITION }),
+      }),
+      fonts,
+    };
   } finally {
     // Emptied rather than torn down, so the next card measures into the same
     // node instead of building another one.
@@ -130,12 +148,19 @@ function splitByMeasurement({
  * Given a `set`, it measures nothing and hands that back. That is for a caller
  * that has already worked one out, such as a sheet that asked what each entry
  * would cost it before deciding how many to lay out.
+ *
+ * Says whether what it is handing back was measured, because until it was it
+ * is only the one card the entry is at least. The faces arrive after the first
+ * measurement and change how wide the text runs, so a second measurement lands
+ * later and can be smaller than the first: a consumer has to be able to tell
+ * that finding from the guess a fresh mount starts with.
  */
 export function useCardSet({
   card,
   layout,
+  typeface,
   set,
-}: UseCardSetOptions): CardSet {
+}: UseCardSetOptions): CardSetSoFar {
   const [measured, setMeasured] = useState<
     MeasuredCardSet | undefined
   >(undefined);
@@ -146,34 +171,49 @@ export function useCardSet({
     }
 
     let current = true;
+    let stopRemeasuring = () => {};
 
-    // Measuring renders cards of its own synchronously, which React refuses
-    // while it is in the middle of a commit. A microtask puts the work just
-    // after this one, still before the browser has painted anything.
-    queueMicrotask(() => {
+    const split = () => {
       if (!current) {
         return;
       }
 
-      setMeasured({
-        card,
-        layout,
-        set: splitByMeasurement({ card, layout }),
-      });
-    });
+      const outcome = splitByMeasurement({ card, layout, typeface });
+
+      setMeasured({ card, layout, typeface, set: outcome.set });
+
+      // The faces the split was measured in are only known once it has been
+      // made, so the wait for them is set up here rather than below. It is
+      // replaced rather than stacked: a split made in the real faces asks for
+      // nothing, so this settles after one round.
+      stopRemeasuring();
+      stopRemeasuring = remeasureWhenFacesLoad(outcome.fonts, split);
+    };
+
+    // Measuring renders cards of its own synchronously, which React refuses
+    // while it is in the middle of a commit. A microtask puts the work just
+    // after this one, still before the browser has painted anything.
+    queueMicrotask(split);
 
     return () => {
       current = false;
+      stopRemeasuring();
     };
-  }, [card, layout, set]);
+  }, [card, layout, typeface, set]);
 
+  // A caller that hands one in has already worked it out, so it is not a
+  // stand-in for anything.
   if (set !== undefined) {
-    return set;
+    return { set, measured: true };
   }
 
-  if (measured?.card === card && measured.layout === layout) {
-    return measured.set;
+  if (
+    measured?.card === card &&
+    measured.layout === layout &&
+    measured.typeface === typeface
+  ) {
+    return { set: measured.set, measured: true };
   }
 
-  return CardSet.of(card);
+  return { set: CardSet.of(card), measured: false };
 }

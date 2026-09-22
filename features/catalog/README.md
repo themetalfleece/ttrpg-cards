@@ -19,8 +19,8 @@ millimetres the cards will be cut to.
 The sheet's geometry is `SheetLayout` from [`@ttrpg-cards/printer`](../../packages/printer),
 which is where a paper measurement is written down. Nothing here restates one.
 
-Each entry goes through `CardSetView` rather than `CardFace`, so one whose text will not fit at
-the bottom of the fitting range runs onto a continuation card beside it instead of being cut
+Each entry goes through `useCardSet` rather than straight to `CardFace`, so one whose text will
+not fit at the bottom of the fitting range runs onto a continuation card instead of being cut
 short.
 
 ## Filling the sheet in cards, not entries
@@ -31,22 +31,34 @@ it, which is after the sheet has already been filled.
 
 So the sheet fills optimistically and settles:
 
-- `CardPageEntry` measures its entry, hands the set to `CardSetView` to draw, and reports what
-  it cost back up.
+- `CardPageEntry` measures its entry, draws the cards of it this sheet was given, and reports
+  what the whole entry cost back up.
 - `usePageFill` holds those counts, and nothing else. What they mean for a sheet is
-  `SheetLayout.fill` in [`@ttrpg-cards/printer`](../../packages/printer), because "how many of
-  these fit on me" is the sheet's question rather than this slice's.
+  `SheetLayout.paginate` in [`@ttrpg-cards/printer`](../../packages/printer), because "how many
+  of these fit on me" is the sheet's question rather than this slice's.
 
-That settles rather than oscillates, for the reason written down on `fill` itself: a count only
-ever grows from one, so the run of entries that fits only ever gets shorter.
+That settles rather than oscillates, for two reasons kept in different places. A count only ever
+grows while it is a guess, which `usePageFill` holds: an entry remounted on another sheet reports
+the one card it is before it has measured, and taking that back would send it home to start
+again. And a count that comes from a measurement is believed whatever it says, because a second
+measurement in the real face is worked out from the top rather than from the first.
 
-`CardPageEntry` exists so the measurement happens **once**. It calls `useCardSet` itself and
-passes the answer to `CardSetView` as `set`, which is the same escape hatch a card face keeps
-for its font size. Rendering `CardSetView` on its own and asking it separately would measure
-every entry twice.
+A count also survives a change of face or card size, as the starting guess for the next one.
+Every entry on the page measures itself again when either changes and says what it really came
+to, so a count from the last face stands in for a moment and is then replaced. Thrown away
+instead, the page lays every entry out as one card and then moves each one that grew to the
+sheet after it, and every one of those moves is a remount and another round of measuring.
 
-The sheet shows what a sheet holds, not the whole catalog. Paging the rest of it across more
-sheets belongs to the print pipeline.
+An entry reports what **it** costs, not what this sheet drew of it. Reporting the window would
+feed the pagination its own output, and the counts would never settle.
+
+`CardPageEntry` exists so the measurement happens **once** per entry, wherever its cards fall. An
+entry that straddles a sheet is mounted twice and measures twice, which is the one place a card
+is paid for more than it is drawn.
+
+Every card the reader has is on a sheet, across as many sheets as they need, and a sheet is only
+left before it is full when the cards run out. The sheets arrive a few at a time so the first one
+is worth looking at while the rest are still measuring, and a print waits for the whole run.
 
 ## Live, and not persisted
 
@@ -104,8 +116,12 @@ there when asked for and out of the way otherwise.
 
 Three things about how it is applied:
 
-- **`zoom`, not `transform`.** The credit sits below the sheet, and a transform would scale the
-  sheet visually without reserving the room, so it would overlap.
+- **`transform`, not `zoom`.** A zoom changes the lengths the sheet is laid out in, so the
+  browser lays every card on it out again for each step of the control: about a fifth of a second
+  of locked page per step on a set worth printing, for an arrangement that cannot have changed. A
+  transform draws what is already laid out, which costs a composite. It reserves no room on its
+  own, which is what the sheet's `margin-right` and `margin-bottom` are for: the sheet below and
+  the credit under it land where the drawing ends rather than where the box does.
 - **`@media screen` only.** On paper the millimetres are already physical. Scaling there would
   be the one thing that makes the print wrong.
 - **Nothing else changes.** The layout arithmetic, what fits on a sheet and the `@page` rule all
