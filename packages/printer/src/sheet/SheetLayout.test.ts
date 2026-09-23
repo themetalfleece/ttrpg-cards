@@ -1,17 +1,21 @@
-import { CardLayout } from "@ttrpg-cards/card";
+import { CardLayout, CARD_SIZES } from "@ttrpg-cards/card";
 import { describe, expect, it } from "vitest";
 
 import { SheetLayout } from "./SheetLayout";
 import {
   CARD_GAP_MILLIMETRES,
+  DEFAULT_FLIP_EDGE,
+  DEFAULT_PRINT_SIDES,
+  FLIP_EDGES,
   PAGE_ORIENTATIONS,
   PAGE_SIZE_PRESETS,
   PAGE_SIZES,
+  PRINT_SIDES,
 } from "./sheet.constants";
 import type {
   SheetItem,
   SheetLayoutSettings,
-  SheetPlacement,
+  SheetPage,
 } from "./sheet.types";
 
 /** Every sheet the records allow, which is what the closed sets are worth. */
@@ -20,7 +24,12 @@ function everySheet(): SheetLayout[] {
     PAGE_ORIENTATIONS.map(
       (orientation) =>
         new SheetLayout({
-          settings: { size: size.id, orientation: orientation.id },
+          settings: {
+            size: size.id,
+            orientation: orientation.id,
+            sides: DEFAULT_PRINT_SIDES,
+            flipEdge: DEFAULT_FLIP_EDGE,
+          },
         }),
     ),
   );
@@ -68,8 +77,9 @@ describe("the margin each paper carries", () => {
     const layout = CardLayout.default();
 
     for (const paper of PAGE_SIZES) {
-      const sheet = new SheetLayout({
-        settings: { size: paper.id, orientation: "portrait" },
+      const sheet = SheetLayout.default().with({
+        size: paper.id,
+        orientation: "portrait",
       });
 
       expect(sheet.capacityFor({ layout })).toBe(9);
@@ -237,22 +247,70 @@ describe("SheetLayout.gridInsetMillimetres", () => {
   });
 });
 
+describe("SheetLayout.gridRowInsetMillimetres", () => {
+  // The same property the column inset is held to, down the sheet instead of
+  // across it, and it carries more weight here: a back slot is the mirror of
+  // its front, so a grid not centred on the axis being reversed prints every
+  // back offset from its front by the whole leftover.
+  it("leaves the grid exactly the room the insets do not take, on every sheet and every card", () => {
+    for (const sheet of everySheet()) {
+      for (const size of CARD_SIZES) {
+        const layout = CardLayout.fromPreset({ preset: size.id });
+        const rows = sheet.rowsFor({ layout });
+        const gridHeight =
+          rows * layout.heightMillimetres +
+          (rows - 1) * sheet.cardGapMillimetres;
+        const inset = sheet.gridRowInsetMillimetres({ layout });
+
+        expect(gridHeight + 2 * inset).toBeCloseTo(
+          sheet.contentHeightMillimetres,
+          10,
+        );
+        expect(inset).toBeGreaterThanOrEqual(0);
+      }
+    }
+  });
+
+  // The case the shipped defaults land on: long edge is the default flip, so
+  // a reader who only turns the paper round gets a row mirror, and this is
+  // the leftover that would otherwise sit under the last row.
+  it("is real room on a sheet whose mirror runs down it", () => {
+    const sheet = SheetLayout.default().with({
+      orientation: "landscape",
+    });
+    const layout = CardLayout.default();
+
+    expect(sheet.mirrorAxis).toBe("rows");
+    expect(sheet.gridRowInsetMillimetres({ layout })).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it("is nothing at all when no row fits", () => {
+    const sheet = SheetLayout.default();
+
+    expect(
+      sheet.gridRowInsetMillimetres({ layout: squareLayout(400) }),
+    ).toBe(0);
+  });
+});
+
 describe("SheetLayout.paginate", () => {
   // A large card on the default sheet gives a capacity of four, which is
   // small enough to read the packing off the cases below.
   const layout = CardLayout.fromPreset({ preset: "large" });
   const sheet = SheetLayout.default();
 
-  /** Each sheet as the cards on it, written `id` or `id:from` past the first. */
+  /** Each page as the cards on it, written `id` or `id:from` past the first. */
   const cardsOn = (
-    sheets: readonly (readonly SheetPlacement<SheetItem>[])[],
+    pages: readonly SheetPage<SheetItem>[],
   ): string[][] =>
-    sheets.map((placements) =>
-      placements.flatMap((placement) =>
-        Array.from({ length: placement.count }, (_unused, index) =>
-          placement.from + index === 0
-            ? placement.item.id
-            : `${placement.item.id}:${placement.from + index}`,
+    pages.map((page) =>
+      page.slots.flatMap((slot) =>
+        Array.from({ length: slot.count }, (_unused, index) =>
+          slot.from + index === 0
+            ? slot.item.id
+            : `${slot.item.id}:${slot.from + index}`,
         ),
       ),
     );
@@ -390,14 +448,329 @@ describe("SheetLayout.paginate", () => {
       });
 
       for (const filled of sheets.slice(0, -1)) {
-        const cards = filled.reduce(
-          (total, placement) => total + placement.count,
+        const cards = filled.slots.reduce(
+          (total, slot) => total + slot.count,
           0,
         );
 
         expect(cards).toBe(capacity);
       }
     }
+  });
+});
+
+describe("SheetLayout.mirrorAxis", () => {
+  const layout = CardLayout.default();
+
+  // The sheet turns about the axis its flip edge runs along, so which axis
+  // reverses is the way round the paper is as much as the edge the reader
+  // picked. Both papers are portrait by default and landscape when turned, so
+  // one table covers every combination the records allow.
+  it("reverses the columns on portrait paper flipped on the long edge", () => {
+    for (const sheet of everySheet()) {
+      const portrait = sheet.with({
+        orientation: "portrait",
+        flipEdge: "long-edge",
+      });
+
+      expect(portrait.mirrorAxis).toBe("columns");
+    }
+  });
+
+  it("reverses the rows on portrait paper flipped on the short edge", () => {
+    for (const sheet of everySheet()) {
+      const portrait = sheet.with({
+        orientation: "portrait",
+        flipEdge: "short-edge",
+      });
+
+      expect(portrait.mirrorAxis).toBe("rows");
+    }
+  });
+
+  it("swaps the two when the paper is turned the other way round", () => {
+    for (const sheet of everySheet()) {
+      const landscape = sheet.with({ orientation: "landscape" });
+
+      expect(
+        landscape.with({ flipEdge: "long-edge" }).mirrorAxis,
+      ).toBe("rows");
+      expect(
+        landscape.with({ flipEdge: "short-edge" }).mirrorAxis,
+      ).toBe("columns");
+    }
+  });
+
+  it("maps the three by three grid across and down", () => {
+    const sheet = SheetLayout.default();
+    const slots = Array.from({ length: 9 }, (_unused, slot) => slot);
+
+    expect(
+      slots.map((slot) =>
+        sheet
+          .with({ flipEdge: "long-edge" })
+          .mirrorSlot({ slot, layout }),
+      ),
+    ).toEqual([2, 1, 0, 5, 4, 3, 8, 7, 6]);
+    expect(
+      slots.map((slot) =>
+        sheet
+          .with({ flipEdge: "short-edge" })
+          .mirrorSlot({ slot, layout }),
+      ),
+    ).toEqual([6, 7, 8, 3, 4, 5, 0, 1, 2]);
+  });
+
+  // Turning the sheet back over is the same turn, so nothing is lost by doing
+  // it twice. That is also what makes a back page's slots a permutation of its
+  // front's rather than a mapping that could drop or collide.
+  it("is its own inverse, on every sheet and every flip", () => {
+    for (const sheet of everySheet()) {
+      for (const edge of FLIP_EDGES) {
+        const flipped = sheet.with({ flipEdge: edge.id });
+        const capacity = flipped.capacityFor({ layout });
+
+        for (let slot = 0; slot < capacity; slot++) {
+          expect(
+            flipped.mirrorSlot({
+              slot: flipped.mirrorSlot({ slot, layout }),
+              layout,
+            }),
+          ).toBe(slot);
+        }
+      }
+    }
+  });
+
+  it("hands back the slot it was given when nothing fits on the sheet", () => {
+    expect(
+      SheetLayout.default().mirrorSlot({
+        slot: 3,
+        layout: squareLayout(400),
+      }),
+    ).toBe(3);
+  });
+});
+
+describe("SheetLayout.paginate, printed on both sides", () => {
+  // A large card on the default sheet gives a capacity of four, small enough
+  // to read the pairing off the cases below.
+  const layout = CardLayout.fromPreset({ preset: "large" });
+  const sheet = SheetLayout.default().with({ sides: "double" });
+
+  /** Each page as `id:from` per slot, blanks written for the gaps between. */
+  const slotsOn = (
+    pages: readonly SheetPage<SheetItem>[],
+  ): string[][] =>
+    pages.map((page) => {
+      const filled: string[] = [];
+
+      for (const slot of page.slots) {
+        while (filled.length < slot.index) {
+          filled.push("-");
+        }
+
+        filled.push(`${slot.item.id}:${slot.from}`);
+      }
+
+      return filled;
+    });
+
+  it("holds these cards two across and two down, which the cases below read against", () => {
+    expect(sheet.columnsFor({ layout })).toBe(2);
+    expect(sheet.rowsFor({ layout })).toBe(2);
+  });
+
+  it("puts a continuation on the mirror of its own front slot", () => {
+    expect(
+      slotsOn(
+        sheet.paginate({
+          items: entries.slice(0, 1),
+          layout,
+          faceCounts: new Map([["a", 2]]),
+        }),
+      ),
+    ).toEqual([["a:0"], ["-", "a:1"]]);
+  });
+
+  it("mirrors down the sheet instead when the flip is on the short edge", () => {
+    expect(
+      slotsOn(
+        sheet.with({ flipEdge: "short-edge" }).paginate({
+          items: entries.slice(0, 1),
+          layout,
+          faceCounts: new Map([["a", 2]]),
+        }),
+      ),
+    ).toEqual([["a:0"], ["-", "-", "a:1"]]);
+  });
+
+  // A three card entry is two slots, and the second one's back has nothing to
+  // put on it. That generalises the two card case rather than special casing
+  // it: odd numbered cards take a front, even numbered ones a back.
+  it("gives a three card entry two slots and leaves the second back blank", () => {
+    expect(
+      slotsOn(
+        sheet.paginate({
+          items: entries.slice(0, 1),
+          layout,
+          faceCounts: new Map([["a", 3]]),
+        }),
+      ),
+    ).toEqual([
+      ["a:0", "a:2"],
+      ["-", "a:1"],
+    ]);
+  });
+
+  // A page the driver never puts out shifts every pairing after it, which
+  // ruins the run rather than one card, so the blank one is a page like any
+  // other.
+  it("emits a back page for every front, including one that carries nothing", () => {
+    const pages = sheet.paginate({
+      items: entries,
+      layout,
+      faceCounts: new Map(),
+    });
+
+    expect(pages.map((page) => page.side)).toEqual(["front", "back"]);
+    expect(pages.map((page) => page.number)).toEqual([1, 1]);
+    expect(pages[1]?.slots).toEqual([]);
+  });
+
+  it("pairs every sheet of a job that runs to several", () => {
+    const many = Array.from({ length: 9 }, (_unused, index) => ({
+      id: `entry-${index}`,
+    }));
+    const pages = sheet.paginate({
+      items: many,
+      layout,
+      faceCounts: new Map(),
+    });
+
+    expect(pages.map((page) => page.side)).toEqual([
+      "front",
+      "back",
+      "front",
+      "back",
+      "front",
+      "back",
+    ]);
+    expect(pages.map((page) => page.number)).toEqual([
+      1, 1, 2, 2, 3, 3,
+    ]);
+  });
+
+  // Which gathers the blank backs at the tail of the run, so a driver still
+  // set to skip blank pages drops only trailing pages. It costs the same
+  // paper either way: the page count is the sum of the slots.
+  it("lays entries needing more than one card out first", () => {
+    expect(
+      slotsOn(
+        sheet.paginate({
+          items: entries,
+          layout,
+          faceCounts: new Map([["d", 2]]),
+        }),
+      ),
+    ).toEqual([
+      ["d:0", "a:0", "b:0", "c:0"],
+      ["-", "d:1"],
+    ]);
+  });
+
+  it("mirrors a full sheet of continuations across the grid", () => {
+    const pages = sheet.paginate({
+      items: entries,
+      layout,
+      faceCounts: new Map([
+        ["a", 2],
+        ["b", 2],
+        ["c", 2],
+        ["d", 2],
+      ]),
+    });
+
+    expect(slotsOn(pages)).toEqual([
+      ["a:0", "b:0", "c:0", "d:0"],
+      ["b:1", "a:1", "d:1", "c:1"],
+    ]);
+  });
+
+  it("loses no card and repeats none", () => {
+    const pages = sheet.paginate({
+      items: entries,
+      layout,
+      faceCounts: new Map([
+        ["a", 3],
+        ["c", 5],
+      ]),
+    });
+    const cards = pages
+      .flatMap((page) => page.slots)
+      .map((slot) => `${slot.item.id}:${slot.from}`);
+
+    expect(cards.toSorted()).toEqual([
+      "a:0",
+      "a:1",
+      "a:2",
+      "b:0",
+      "c:0",
+      "c:1",
+      "c:2",
+      "c:3",
+      "c:4",
+      "d:0",
+    ]);
+  });
+
+  it("never puts two cards in one slot of a page", () => {
+    const pages = sheet.paginate({
+      items: entries,
+      layout,
+      faceCounts: new Map([
+        ["a", 3],
+        ["c", 5],
+      ]),
+    });
+
+    for (const page of pages) {
+      const taken = page.slots.map((slot) => slot.index);
+
+      expect(taken).toEqual(
+        [...new Set(taken)].toSorted((a, b) => a - b),
+      );
+    }
+  });
+
+  it("gives back no pages when it is given no entries", () => {
+    expect(
+      sheet.paginate({ items: [], layout, faceCounts: new Map() }),
+    ).toEqual([]);
+  });
+
+  it("gives back no pages when the card is larger than the paper", () => {
+    expect(
+      sheet.paginate({
+        items: entries,
+        layout: squareLayout(400),
+        faceCounts: new Map(),
+      }),
+    ).toEqual([]);
+  });
+
+  // Off is today's behaviour exactly, which is what a reader who never touches
+  // the control is relying on.
+  it("goes back to one page a sheet when two sided is turned off", () => {
+    const packing = {
+      items: entries,
+      layout,
+      faceCounts: new Map([["b", 4]]),
+    };
+
+    expect(sheet.with({ sides: "single" }).paginate(packing)).toEqual(
+      SheetLayout.default().paginate(packing),
+    );
   });
 });
 
@@ -440,8 +813,33 @@ describe("the page records", () => {
     ]);
   });
 
+  it("offers both ways of printing a job and nothing else", () => {
+    expect(PRINT_SIDES.map((way) => way.id)).toEqual([
+      "single",
+      "double",
+    ]);
+  });
+
+  it("offers both flip edges and nothing else", () => {
+    expect(FLIP_EDGES.map((edge) => edge.id)).toEqual([
+      "long-edge",
+      "short-edge",
+    ]);
+  });
+
+  it("starts one sided, flipped on the long edge", () => {
+    expect(DEFAULT_PRINT_SIDES).toBe("single");
+    expect(DEFAULT_FLIP_EDGE).toBe("long-edge");
+    expect(SheetLayout.default().duplex).toBe(false);
+  });
+
   it("carries a label on every option", () => {
-    for (const option of [...PAGE_SIZES, ...PAGE_ORIENTATIONS]) {
+    for (const option of [
+      ...PAGE_SIZES,
+      ...PAGE_ORIENTATIONS,
+      ...PRINT_SIDES,
+      ...FLIP_EDGES,
+    ]) {
       expect(option.name).not.toBe("");
     }
   });

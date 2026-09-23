@@ -1,0 +1,4 @@
+# The pages and PDFs the print verification draws. They are evidence from one
+# run against one build, so they are looked at and thrown away rather than
+# committed. See scripts/verify-print.ts.
+.print-verification

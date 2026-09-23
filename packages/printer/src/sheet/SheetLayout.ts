@@ -2,23 +2,30 @@ import type { CardLayout } from "@ttrpg-cards/card";
 
 import {
   CARD_GAP_MILLIMETRES,
+  DEFAULT_FLIP_EDGE,
   DEFAULT_PAGE_ORIENTATION,
   DEFAULT_PAGE_SIZE,
+  DEFAULT_PRINT_SIDES,
   PAGE_SIZE_PRESETS,
 } from "./sheet.constants";
 import type {
+  DuplexSlot,
+  FlipEdgeName,
+  MirrorAxis,
   PageOrientation,
   PageSizeName,
+  PrintSidesName,
   SheetItem,
   SheetLayoutOverrides,
   SheetLayoutSettings,
   SheetPackingOptions,
-  SheetPlacement,
+  SheetPage,
+  SheetSlot,
 } from "./sheet.types";
 
 /**
- * The sheet cards are laid out on: the paper, the way round it goes, and the
- * margin kept inside its edges.
+ * The sheet cards are laid out on: the paper, the way round it goes, the margin
+ * kept inside its edges, and how the job is printed on it.
  *
  * Immutable, like the card layout it sits beside: a different paper is a new
  * sheet derived with {@link SheetLayout.with}, never a mutation. Several
@@ -45,12 +52,14 @@ export class SheetLayout {
     this.#settings = { ...options.settings };
   }
 
-  /** The sheet everything starts on: A4, portrait. */
+  /** The sheet everything starts on: A4, portrait, printed one side. */
   static default(): SheetLayout {
     return new SheetLayout({
       settings: {
         size: DEFAULT_PAGE_SIZE,
         orientation: DEFAULT_PAGE_ORIENTATION,
+        sides: DEFAULT_PRINT_SIDES,
+        flipEdge: DEFAULT_FLIP_EDGE,
       },
     });
   }
@@ -68,6 +77,24 @@ export class SheetLayout {
   /** Which way round that paper goes. */
   get orientation(): PageOrientation {
     return this.#settings.orientation;
+  }
+
+  /** How many sides of it the job prints on. */
+  get sides(): PrintSidesName {
+    return this.#settings.sides;
+  }
+
+  /** The edge the printer turns it about between one side and the other. */
+  get flipEdge(): FlipEdgeName {
+    return this.#settings.flipEdge;
+  }
+
+  /**
+   * Whether a continuation prints on the back of the slot its first card is
+   * on, which is what makes an entry one double sided card.
+   */
+  get duplex(): boolean {
+    return this.#settings.sides === "double";
   }
 
   /** How wide the sheet is, the way round it is. */
@@ -129,12 +156,7 @@ export class SheetLayout {
    * ```
    */
   capacityFor(options: { layout: CardLayout }): number {
-    const rows = SheetLayout.#countAcross({
-      availableMillimetres: this.contentHeightMillimetres,
-      cardMillimetres: options.layout.heightMillimetres,
-    });
-
-    return this.columnsFor(options) * rows;
+    return this.columnsFor(options) * this.rowsFor(options);
   }
 
   /** How many cards of `layout` fit across this sheet. */
@@ -143,6 +165,74 @@ export class SheetLayout {
       availableMillimetres: this.contentWidthMillimetres,
       cardMillimetres: options.layout.widthMillimetres,
     });
+  }
+
+  /** How many rows of `layout` fit down this sheet. */
+  rowsFor(options: { layout: CardLayout }): number {
+    return SheetLayout.#countAcross({
+      availableMillimetres: this.contentHeightMillimetres,
+      cardMillimetres: options.layout.heightMillimetres,
+    });
+  }
+
+  /**
+   * The grid axis a back page reverses.
+   *
+   * A sheet turns about the axis its flip edge runs along, so a long edge flip
+   * reverses the columns on portrait paper and the rows on landscape. Read off
+   * the paper the way round it actually is, rather than assumed, because which
+   * edge is the long one is the reader's to change.
+   *
+   * @example
+   * ```ts
+   * SheetLayout.default().mirrorAxis; // "columns"
+   * SheetLayout.default().with({ orientation: "landscape" }).mirrorAxis; // "rows"
+   * ```
+   */
+  get mirrorAxis(): MirrorAxis {
+    const longEdgeIsVertical =
+      this.heightMillimetres >= this.widthMillimetres;
+    const turnsAboutVerticalAxis =
+      this.#settings.flipEdge === "long-edge"
+        ? longEdgeIsVertical
+        : !longEdgeIsVertical;
+
+    return turnsAboutVerticalAxis ? "columns" : "rows";
+  }
+
+  /**
+   * The slot on the back of the sheet that lands behind `slot` on the front.
+   *
+   * Its own inverse, because turning the sheet back over is the same turn, so
+   * the mirror of the mirror is where you started.
+   *
+   * A sheet with no room for a card has no slot to mirror into, so it hands
+   * back what it was given.
+   *
+   * @example
+   * ```ts
+   * SheetLayout.default().mirrorSlot({
+   *   slot: 0,
+   *   layout: CardLayout.default(),
+   * }); // 2
+   * ```
+   */
+  mirrorSlot(options: { slot: number; layout: CardLayout }): number {
+    const columns = this.columnsFor(options);
+    const rows = this.rowsFor(options);
+
+    if (columns === 0 || rows === 0) {
+      return options.slot;
+    }
+
+    const row = Math.floor(options.slot / columns);
+    const column = options.slot % columns;
+
+    if (this.mirrorAxis === "columns") {
+      return row * columns + (columns - 1 - column);
+    }
+
+    return (rows - 1 - row) * columns + column;
   }
 
   /**
@@ -180,6 +270,46 @@ export class SheetLayout {
   }
 
   /**
+   * How far down from the margin the grid of `layout` starts, so that the
+   * blank the last row does not use is split between the two edges.
+   *
+   * The same arithmetic as {@link SheetLayout.gridInsetMillimetres}, down the
+   * sheet rather than across it, and it exists for a stronger reason than
+   * tidiness: {@link SheetLayout.mirrorSlot} maps a front slot to a back one
+   * by grid index, and that index is the physically right place only if the
+   * grid is centred on the axis being reversed. Left to trail under the last
+   * row, the whole vertical leftover offsets every back from its front, which
+   * on A4 landscape at the standard size is 16mm on an 88mm card.
+   *
+   * Plain geometry rather than a mode: whether a sheet wants the row centred
+   * is the consumer's question, and printing on one side has nothing to
+   * register against.
+   *
+   * Zero when no row fits, which is the only honest answer for a grid that
+   * does not exist.
+   *
+   * @example
+   * ```ts
+   * SheetLayout.default().gridRowInsetMillimetres({
+   *   layout: CardLayout.default(),
+   * }); // 6.5
+   * ```
+   */
+  gridRowInsetMillimetres(options: { layout: CardLayout }): number {
+    const rows = this.rowsFor(options);
+
+    if (rows === 0) {
+      return 0;
+    }
+
+    const gridHeight =
+      rows * options.layout.heightMillimetres +
+      (rows - 1) * CARD_GAP_MILLIMETRES;
+
+    return (this.contentHeightMillimetres - gridHeight) / 2;
+  }
+
+  /**
    * Every card laid out across as many sheets as they need, in reading order.
    *
    * Counted in cards rather than in entries, because an entry whose text will
@@ -202,18 +332,25 @@ export class SheetLayout {
    * that gets no sheets back for cards it handed over knows the paper and the
    * card size cannot be reconciled.
    *
+   * Printed on both sides this all changes, because the question changes: a
+   * continuation goes on the back of its first card's own slot rather than in
+   * the next slot along, so one cut gives a card carrying the whole entry.
+   * Pages then come in front and back pairs, every card sits at a stated slot
+   * rather than wherever the flow puts it, and entries needing more than one
+   * card are laid out first. See `#paginateBothSides`.
+   *
    * @example
    * ```ts
    * SheetLayout.default().paginate({
    *   items: cards,
    *   layout: CardLayout.default(),
    *   faceCounts: new Map([["alter-self", 2]]),
-   * }); // [[...nine cards worth], [...the rest]]
+   * }); // [{ number: 1, side: undefined, slots: [...] }, ...]
    * ```
    */
   paginate<Item extends SheetItem>(
     options: SheetPackingOptions<Item>,
-  ): readonly (readonly SheetPlacement<Item>[])[] {
+  ): readonly SheetPage<Item>[] {
     const capacity = this.capacityFor({ layout: options.layout });
 
     // No room for a single card means there is no arrangement of these cards
@@ -224,34 +361,164 @@ export class SheetLayout {
       return [];
     }
 
-    const sheets: SheetPlacement<Item>[][] = [];
-    let current: SheetPlacement<Item>[] = [];
+    if (this.duplex) {
+      return this.#paginateBothSides({ packing: options, capacity });
+    }
+
+    return SheetLayout.#paginateOneSide({
+      packing: options,
+      capacity,
+    });
+  }
+
+  /**
+   * The pages of a job printed on one side: one page per sheet, cards in
+   * reading order, each sheet left short only when the cards run out.
+   */
+  static #paginateOneSide<Item extends SheetItem>(options: {
+    packing: SheetPackingOptions<Item>;
+    capacity: number;
+  }): readonly SheetPage<Item>[] {
+    const pages: SheetPage<Item>[] = [];
+    let slots: SheetSlot<Item>[] = [];
     let used = 0;
 
-    for (const item of options.items) {
-      const faces = options.faceCounts.get(item.id) ?? 1;
+    const finish = () => {
+      pages.push({
+        number: pages.length + 1,
+        side: undefined,
+        slots,
+      });
+      slots = [];
+      used = 0;
+    };
+
+    for (const item of options.packing.items) {
+      const faces = options.packing.faceCounts.get(item.id) ?? 1;
       let placed = 0;
 
       while (placed < faces) {
-        if (used === capacity) {
-          sheets.push(current);
-          current = [];
-          used = 0;
+        if (used === options.capacity) {
+          finish();
         }
 
-        const taken = Math.min(capacity - used, faces - placed);
+        const taken = Math.min(
+          options.capacity - used,
+          faces - placed,
+        );
 
-        current.push({ item, from: placed, count: taken });
+        slots.push({ item, from: placed, count: taken, index: used });
         placed += taken;
         used += taken;
       }
     }
 
-    if (current.length > 0) {
-      sheets.push(current);
+    if (slots.length > 0) {
+      finish();
     }
 
-    return sheets;
+    return pages;
+  }
+
+  /**
+   * The pages of a job printed on both sides, always in front and back pairs.
+   *
+   * Every front page is followed by exactly one back page, even when that back
+   * carries nothing. A page a driver never puts out shifts every pairing after
+   * it, which ruins a whole print run rather than one card, so the blank one is
+   * emitted and the reader is told to stop their driver skipping it.
+   */
+  #paginateBothSides<Item extends SheetItem>(options: {
+    packing: SheetPackingOptions<Item>;
+    capacity: number;
+  }): readonly SheetPage<Item>[] {
+    const slots = SheetLayout.#slotsFor(options.packing);
+    const pages: SheetPage<Item>[] = [];
+
+    for (
+      let start = 0;
+      start < slots.length;
+      start += options.capacity
+    ) {
+      const sheet = slots.slice(start, start + options.capacity);
+      const number = start / options.capacity + 1;
+      const fronts: SheetSlot<Item>[] = [];
+      const backs: SheetSlot<Item>[] = [];
+
+      for (const [index, slot] of sheet.entries()) {
+        fronts.push({ ...slot.front, index });
+
+        if (slot.back !== undefined) {
+          backs.push({
+            ...slot.back,
+            index: this.mirrorSlot({
+              slot: index,
+              layout: options.packing.layout,
+            }),
+          });
+        }
+      }
+
+      // The mirror is not reading order, so the backs are put back into it.
+      backs.sort((one, other) => one.index - other.index);
+
+      pages.push({ number, side: "front", slots: fronts });
+      pages.push({ number, side: "back", slots: backs });
+    }
+
+    return pages;
+  }
+
+  /**
+   * The slots a two sided job fills, in the order it fills them.
+   *
+   * Odd numbered cards take a front and even numbered ones the back of the
+   * slot the card before them is on, so a two card entry is one slot and a
+   * three card entry is two with the second back left blank.
+   *
+   * Entries needing more than one card are laid out first, which gathers every
+   * blank back at the tail of the run rather than scattering them through it.
+   * That is worth having because a driver still set to skip blank pages then
+   * drops only trailing pages, with nothing filled after them to be shifted
+   * onto the wrong front, so the run comes out correct instead of ruined. It
+   * saves no paper: how many pages a job takes is the sum of the slots however
+   * they are ordered. The order on the page changes; the order the reader put
+   * the entries in does not.
+   *
+   * The partition is redone as counts arrive, so each entry that turns out to
+   * need a second card jumps ahead of the ones before it and they are laid out
+   * again, which remounts and re-measures them.
+   */
+  static #slotsFor<Item extends SheetItem>(
+    packing: SheetPackingOptions<Item>,
+  ): readonly DuplexSlot<Item>[] {
+    const faceCountOf = (item: Item) =>
+      packing.faceCounts.get(item.id) ?? 1;
+    const continued = packing.items.filter(
+      (item) => faceCountOf(item) > 1,
+    );
+    const rest = packing.items.filter(
+      (item) => faceCountOf(item) <= 1,
+    );
+    const slots: DuplexSlot<Item>[] = [];
+
+    for (const item of [...continued, ...rest]) {
+      const faces = faceCountOf(item);
+
+      for (let from = 0; from < faces; from += 2) {
+        const continuation = from + 1;
+
+        slots.push({
+          front: { item, from, count: 1 },
+          back:
+            continuation < faces
+              ? { item, from: continuation, count: 1 }
+              : undefined,
+        });
+      }
+    }
+
+    return slots;
   }
 
   /**

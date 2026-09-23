@@ -1,8 +1,12 @@
 import {
+  FLIP_EDGES,
   PAGE_ORIENTATIONS,
   PAGE_SIZES,
+  PRINT_SIDES,
+  type FlipEdgeName,
   type PageOrientation,
   type PageSizeName,
+  type PrintSidesName,
 } from "@ttrpg-cards/printer";
 import type { ChoiceGroupOption } from "@ttrpg-cards/ui/ChoiceGroup";
 
@@ -23,9 +27,17 @@ export const PAPER_OPTIONS: readonly ChoiceGroupOption<PageSizeName>[] =
 export const ORIENTATION_OPTIONS: readonly ChoiceGroupOption<PageOrientation>[] =
   choicesFrom(PAGE_ORIENTATIONS);
 
+export const SIDES_OPTIONS: readonly ChoiceGroupOption<PrintSidesName>[] =
+  choicesFrom(PRINT_SIDES);
+
+export const FLIP_EDGE_OPTIONS: readonly ChoiceGroupOption<FlipEdgeName>[] =
+  choicesFrom(FLIP_EDGES);
+
 /** What each control is asking, and what the action says. */
 export const PAPER_LABEL = "Paper";
 export const ORIENTATION_LABEL = "Orientation";
+export const SIDES_LABEL = "Sides";
+export const FLIP_EDGE_LABEL = "Flip on";
 export const PRINT_LABEL = "Print";
 
 /**

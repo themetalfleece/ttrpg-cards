@@ -65,6 +65,50 @@ jobs:
       - name: Build Storybook
         run: pnpm build-storybook
 
+  print:
+    name: Print verification
+    runs-on: ubuntu-latest
+    # A build, a browser launch and two full layouts of the sheet. Anything past this is
+    # wedged rather than slow.
+    timeout-minutes: 30
+    # Its own job, like `Catalog drift` and for the same reason: it downloads a browser
+    # binary, and the gate has to keep passing on a clone with no network. Unlike that
+    # job every failure here is about the change under test, because the harness drives
+    # the built app and measures what Chromium actually drew.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Keyed on the workspace file, which is where the Playwright version is pinned, so
+      # the browser is fetched once and then not again until that pin moves.
+      - name: Cache the browser
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('pnpm-workspace.yaml') }}
+
+      # Chromium only. The harness never opens another engine, and the rest of the
+      # browsers are a few hundred megabytes of download per run. Run whether or not the
+      # cache hit: the binary is restored but the system libraries it links against are
+      # not, and `--with-deps` skips the download it already has.
+      - name: Install the browser
+        run: pnpm --filter @ttrpg-cards/printer exec playwright install --with-deps chromium
+
+      # Builds the export first, then serves it and measures the sheets. Every
+      # measurement behind a verdict is printed, so a failure reads in the job log
+      # without the renders, which stay on the machine that made them.
+      - name: Verify the printed page
+        run: pnpm verify:print
+
   catalog:
     name: Catalog drift
     runs-on: ubuntu-latest

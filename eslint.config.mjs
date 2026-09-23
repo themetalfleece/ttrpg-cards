@@ -294,11 +294,12 @@ export default defineConfig([
   },
 
   {
-    // Build tooling a person runs by hand, never bundled and never shipped.
-    // Reporting what it did on stdout is its whole interface, so `no-console`
-    // is off here and nowhere else. The transmission ban still applies: these
-    // scripts read files that were downloaded by hand, they do not fetch.
-    name: "ttrpg-cards/package-scripts",
+    // Build and verification tooling a person runs by hand, never bundled and
+    // never shipped. Reporting what it did on stdout is its whole interface, so
+    // `no-console` is off here and nowhere else. The transmission ban still
+    // applies: these scripts read files that were downloaded by hand or built
+    // locally, they do not fetch.
+    name: "ttrpg-cards/scripts",
     files: ["packages/*/scripts/**/*.ts"],
     rules: {
       "no-console": "off",

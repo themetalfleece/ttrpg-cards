@@ -1,11 +1,31 @@
-import { CardLayout } from "@ttrpg-cards/card";
-import { SheetLayout } from "@ttrpg-cards/printer";
+import { CardLayout, type Card } from "@ttrpg-cards/card";
+import { SheetLayout, type SheetSlot } from "@ttrpg-cards/printer";
 import { describe, expect, it } from "vitest";
 
-import { cardPageStyle, pageRule } from "./CardPage.data";
+import { cardPageStyle, pageCells, pageRule } from "./CardPage.data";
 
 /** The size the properties below are worked out against. */
 const layout = CardLayout.default();
+
+/** A card carrying nothing but the name it is recognised by. */
+function entry(id: string): Card {
+  return { id, name: [{ text: id }], meta: [], body: [] };
+}
+
+/** One entry's cards at a stated slot. */
+function slot(options: {
+  id: string;
+  index: number;
+  from?: number;
+  count?: number;
+}): SheetSlot<Card> {
+  return {
+    item: entry(options.id),
+    from: options.from ?? 0,
+    count: options.count ?? 1,
+    index: options.index,
+  };
+}
 
 describe("cardPageStyle", () => {
   it("states every length in millimetres, so screen and paper agree", () => {
@@ -100,6 +120,90 @@ describe("pageRule", () => {
   });
 });
 
+describe("pageCells", () => {
+  // A front page fills from zero, so the cards are already in the order they
+  // are drawn and nothing has to be held open.
+  it("draws a full page as its cards and nothing else", () => {
+    const cells = pageCells({
+      number: 1,
+      side: "front",
+      slots: [
+        slot({ id: "a", index: 0 }),
+        slot({ id: "b", index: 1 }),
+      ],
+    });
+
+    expect(cells.map((cell) => cell.kind)).toEqual([
+      "cards",
+      "cards",
+    ]);
+  });
+
+  // The page wraps its cards in reading order, so a card only lands at the
+  // slot the mirror gave it if the slots before it are occupied.
+  it("holds open every slot before the first card on a back page", () => {
+    const cells = pageCells({
+      number: 1,
+      side: "back",
+      slots: [slot({ id: "a", from: 1, index: 2 })],
+    });
+
+    expect(cells).toEqual([
+      { kind: "blank", index: 0 },
+      { kind: "blank", index: 1 },
+      { kind: "cards", slot: slot({ id: "a", from: 1, index: 2 }) },
+    ]);
+  });
+
+  it("holds open the gaps between cards as well as the ones before them", () => {
+    const cells = pageCells({
+      number: 1,
+      side: "back",
+      slots: [
+        slot({ id: "a", from: 1, index: 1 }),
+        slot({ id: "b", from: 1, index: 4 }),
+      ],
+    });
+
+    expect(cells.map((cell) => cell.kind)).toEqual([
+      "blank",
+      "cards",
+      "blank",
+      "blank",
+      "cards",
+    ]);
+  });
+
+  // A run of several cards fills the slots after its own, so the next gap is
+  // measured from the end of the run rather than from where it started.
+  it("counts a run of cards as the slots it takes", () => {
+    const cells = pageCells({
+      number: 1,
+      side: undefined,
+      slots: [
+        slot({ id: "a", index: 0, count: 3 }),
+        slot({ id: "b", index: 4 }),
+      ],
+    });
+
+    expect(cells.map((cell) => cell.kind)).toEqual([
+      "cards",
+      "blank",
+      "cards",
+    ]);
+  });
+
+  // A back with no children at all is an element of no height once the page
+  // box supplies the height on paper, and a browser collapses the forced break
+  // before it into the one after it. The page is then never put out, and every
+  // back after it lands on the wrong front.
+  it("gives a back that carries nothing something to stand it up", () => {
+    expect(pageCells({ number: 1, side: "back", slots: [] })).toEqual(
+      [{ kind: "blank", index: 0 }],
+    );
+  });
+});
+
 describe("the grid inset", () => {
   // The grid is columns wide, not content wide. Insetting the whole grid is
   // what keeps every row on the same columns, which centring the rows does
@@ -124,6 +228,28 @@ describe("the grid inset", () => {
     expect(gridWidth + 2 * inset).toBeCloseTo(
       sheet.contentWidthMillimetres,
       10,
+    );
+  });
+
+  // Down the sheet the inset is what makes a back land on its front, since a
+  // back slot is the mirror of its front across the grid. A one sided sheet
+  // has no back to register, so it keeps the grid where it already was.
+  it("centres the grid down the sheet only when the job is two sided", () => {
+    const sheet = SheetLayout.default().with({
+      orientation: "landscape",
+    });
+    const oneSided = cardPageStyle({ sheet, layout });
+    const twoSided = cardPageStyle({
+      sheet: sheet.with({ sides: "double" }),
+      layout,
+    });
+
+    expect(oneSided["--page-grid-row-inset"]).toBe("0mm");
+    expect(twoSided["--page-grid-row-inset"]).toBe(
+      `${sheet.gridRowInsetMillimetres({ layout })}mm`,
+    );
+    expect(sheet.gridRowInsetMillimetres({ layout })).toBeGreaterThan(
+      0,
     );
   });
 });

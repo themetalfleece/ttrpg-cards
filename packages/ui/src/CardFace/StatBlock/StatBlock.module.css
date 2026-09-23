@@ -68,8 +68,13 @@
    * legibility floor here. A label is chrome and does not follow the body, but
    * it does answer for its own width, the same way the title does.
    */
-  font-size: max(calc(var(--card-font-size-stat-label) * var(--card-stat-label-scale, 1)),
-      var(--card-font-size-label-minimum));
+  font-size: max(
+    calc(
+      var(--card-font-size-stat-label) *
+        var(--card-stat-label-scale, 1)
+    ),
+    var(--card-font-size-label-minimum)
+  );
   font-weight: var(--font-weight-bold);
   /* The backstop, for a label so long that the floor is reached before it
      fits: it breaks at a syllable rather than wherever the line ran out.
@@ -89,8 +94,10 @@
  */
 .statValue {
   margin: calc(var(--card-space-tight) / 2) 0 0;
-  font-size: max(calc(var(--card-font-size) * var(--card-scale-stat-value)),
-      var(--card-font-size-minimum));
+  font-size: max(
+    calc(var(--card-font-size) * var(--card-scale-stat-value)),
+    var(--card-font-size-minimum)
+  );
   hyphens: auto;
   overflow-wrap: break-word;
 }

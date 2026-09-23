@@ -29,8 +29,10 @@ import {
   unreadLine,
 } from "./ImportPanel/ImportPanel.constants";
 import {
+  FLIP_EDGE_LABEL,
   PRINT_LABEL,
   PRINT_WAITING_LABEL,
+  SIDES_LABEL,
 } from "./PageControls/PageControls.constants";
 import {
   CALIBRATION_HINT,
@@ -603,6 +605,72 @@ describe("CatalogView", () => {
       );
       expect(facesOnSheet(container)).toHaveLength(9);
     }
+  });
+
+  // Off is today's behavior exactly, which is what a reader who never touches
+  // the control is relying on.
+  it("prints one page a sheet until the reader asks for two sides", async () => {
+    const container = await renderView();
+    const oneSided = sheetSurfaces(container).length;
+
+    for (const sheet of sheetSurfaces(container)) {
+      expect(sheet.getAttribute("aria-label")).not.toContain("front");
+    }
+
+    await pickFrom(container, SIDES_LABEL, "Two sided");
+    await passFrames();
+
+    const pages = sheetSurfaces(container);
+
+    expect(pages).toHaveLength(oneSided * 2);
+    expect(
+      pages.map((page) =>
+        page.getAttribute("aria-label")?.endsWith("back")
+          ? "back"
+          : "front",
+      ),
+    ).toEqual(
+      pages.map((_unused, index) =>
+        index % 2 === 0 ? "front" : "back",
+      ),
+    );
+  });
+
+  // A back with nothing on it is still a page. One the driver never puts out
+  // moves every back after it onto the wrong front, so it is drawn like any
+  // other page and the reader is told to stop their driver skipping it.
+  it("draws a back for every front, carrying nothing when there is nothing", async () => {
+    const container = await renderView();
+
+    await pickFrom(container, SIDES_LABEL, "Two sided");
+    await passFrames();
+
+    // The bundled sample splits nothing in jsdom, which has no layout to
+    // measure, so every back on the page is one of the blank ones.
+    expect(facesOnSheet(container, 1)).toHaveLength(0);
+    expect(sheetSurfaces(container)[1]).toBeDefined();
+  });
+
+  // Which edge the printer turns the sheet about decides where a back slot
+  // lands, and a browser can neither find it out nor set it, so the app asks
+  // and then says the answer back as the setting to match.
+  it("asks which edge the printer flips on, and only while it matters", async () => {
+    const container = await renderView();
+
+    expect(container.textContent).not.toContain(FLIP_EDGE_LABEL);
+
+    await pickFrom(container, SIDES_LABEL, "Two sided");
+
+    expect(container.textContent).toContain(FLIP_EDGE_LABEL);
+    expect(container.textContent).toContain(
+      "flipped on the long edge",
+    );
+
+    await pickFrom(container, FLIP_EDGE_LABEL, "Short edge");
+
+    expect(container.textContent).toContain(
+      "flipped on the short edge",
+    );
   });
 
   // Without this the browser picks the paper, the sheet re-wraps against

@@ -16,6 +16,7 @@
     "typecheck": "cross-env DO_NOT_TRACK=1 turbo run typecheck",
     "test": "cross-env DO_NOT_TRACK=1 turbo run test",
     "test:watch": "pnpm --filter @ttrpg-cards/ui test:watch",
+    "verify:print": "pnpm build && pnpm --filter @ttrpg-cards/printer verify:print ../../apps/web/out",
     "storybook": "pnpm --filter @ttrpg-cards/ui storybook",
     "build-storybook": "pnpm --filter @ttrpg-cards/ui build-storybook"
   },

@@ -10,11 +10,15 @@ import {
   type CardTypefaceId,
 } from "@ttrpg-cards/card";
 import {
+  DEFAULT_FLIP_EDGE,
   DEFAULT_PAGE_ORIENTATION,
   DEFAULT_PAGE_SIZE,
+  DEFAULT_PRINT_SIDES,
   SheetLayout,
+  type FlipEdgeName,
   type PageOrientation,
   type PageSizeName,
+  type PrintSidesName,
 } from "@ttrpg-cards/printer";
 import { SCREEN_SCALE_RANGE, clampToRange } from "@ttrpg-cards/core";
 import {
@@ -77,6 +81,13 @@ export function useCatalogSelection(): CatalogSelection {
   const [orientation, setOrientation] = useState<PageOrientation>(
     DEFAULT_PAGE_ORIENTATION,
   );
+  const [sides, setSides] = useState<PrintSidesName>(
+    DEFAULT_PRINT_SIDES,
+  );
+  // Held whether or not the job is printing on both sides, so turning that off
+  // and on again comes back to the edge the reader already picked.
+  const [flipEdge, setFlipEdge] =
+    useState<FlipEdgeName>(DEFAULT_FLIP_EDGE);
   const [screenScale, setScreenScale] = useState(
     SCREEN_SCALE_RANGE.initial,
   );
@@ -137,8 +148,11 @@ export function useCatalogSelection(): CatalogSelection {
     [size, textSize],
   );
   const sheet = useMemo(
-    () => new SheetLayout({ settings: { size: paper, orientation } }),
-    [paper, orientation],
+    () =>
+      new SheetLayout({
+        settings: { size: paper, orientation, sides, flipEdge },
+      }),
+    [paper, orientation, sides, flipEdge],
   );
   // One identity per set of cards, for the same reason the layout has one per
   // size: a fresh array would re-measure every card on the sheet. The cards
@@ -172,6 +186,8 @@ export function useCatalogSelection(): CatalogSelection {
     layout,
     paper,
     orientation,
+    sides,
+    flipEdge,
     sheet,
     cards,
     attributions: showsBundledCards
@@ -189,6 +205,8 @@ export function useCatalogSelection(): CatalogSelection {
     chooseTextSize: setTextSize,
     choosePaper: setPaper,
     chooseOrientation: setOrientation,
+    chooseSides: setSides,
+    chooseFlipEdge: setFlipEdge,
     chooseScreenScale,
     importMarkdown,
     clearImport,

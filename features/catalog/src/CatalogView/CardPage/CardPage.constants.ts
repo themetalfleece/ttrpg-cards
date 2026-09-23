@@ -1,3 +1,5 @@
+import type { SheetSide } from "@ttrpg-cards/printer";
+
 /**
  * What a sheet with room for nothing says.
  *
@@ -9,23 +11,23 @@ export const NOTHING_FITS =
   "Nothing fits on this sheet. Try a smaller card size, a larger paper, or turning the paper the other way round.";
 
 /**
- * How many sheets are on the page before a frame has gone by.
+ * How many pages are up before a frame has gone by.
  *
- * One, so the reader has something to look at in the time a single sheet takes
+ * One, so the reader has something to look at in the time a single page takes
  * to measure rather than in the time all of them take.
  */
-export const FIRST_SHEET = 1;
+export const FIRST_PAGE = 1;
 
 /**
- * How much larger each frame's helping of sheets is than the one before it.
+ * How much larger each frame's helping of pages is than the one before it.
  *
- * Doubling rather than one at a time. A frame costs a sheet's measurements
- * plus a reconcile of every sheet already up, so adding them singly makes the
- * second cost grow with the page and turns a nine second set into twenty one,
- * measured. Doubling holds the first sheet's arrival where it is and gets the
- * rest up in a handful of commits instead of one per sheet.
+ * Doubling rather than one at a time. A frame costs a page's measurements plus
+ * a reconcile of every page already up, so adding them singly makes the second
+ * cost grow with the run and turns a nine second set into twenty one,
+ * measured. Doubling holds the first page's arrival where it is and gets the
+ * rest up in a handful of commits instead of one per page.
  */
-export const SHEET_GROWTH = 2;
+export const PAGE_GROWTH = 2;
 
 /**
  * What the browser says before it draws pages, for a print started any way at
@@ -68,15 +70,30 @@ export const MEDIA_CHANGE_EVENT = "change";
 export const SETTLED_FRAMES = 3;
 
 /**
- * How a sheet names itself to anything reading the page aloud.
+ * How a page names itself to anything reading it aloud.
  *
- * Counted, because a reader who brought more cards than one sheet holds needs
- * to know both that there are more and which one they are on. User-facing
- * copy, so American spelling.
+ * Counted, because a reader who brought more cards than one page holds needs
+ * to know both that there are more and which one they are on. Counted in
+ * pieces of paper, so the two sides of one sheet are both page 1. Printed on
+ * both sides it says which side too, because half the pages are backs and a
+ * reader who cannot see the cards has no other way to tell. User-facing copy,
+ * so American spelling.
+ *
+ * @example
+ * ```ts
+ * sheetLabel({ number: 2, total: 3, side: "back" }); // "Card page 2 of 3, back"
+ * ```
  */
 export function sheetLabel(options: {
   number: number;
   total: number;
+  side?: SheetSide | undefined;
 }): string {
-  return `Card page ${options.number} of ${options.total}`;
+  const page = `Card page ${options.number} of ${options.total}`;
+
+  if (options.side === undefined) {
+    return page;
+  }
+
+  return `${page}, ${options.side}`;
 }

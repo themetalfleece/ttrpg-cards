@@ -1,21 +1,33 @@
 export { SheetLayout } from "./SheetLayout";
 export {
   CARD_GAP_MILLIMETRES,
+  DEFAULT_FLIP_EDGE,
   DEFAULT_PAGE_ORIENTATION,
   DEFAULT_PAGE_SIZE,
+  DEFAULT_PRINT_SIDES,
+  FLIP_EDGES,
   PAGE_ORIENTATIONS,
   PAGE_SIZE_PRESETS,
   PAGE_SIZES,
+  PRINT_SIDES,
 } from "./sheet.constants";
 export type {
+  FlipEdgeName,
+  FlipEdgeOption,
+  MirrorAxis,
   PageOrientation,
   PageOrientationOption,
   PagePreset,
   PageSizeName,
   PageSizeOption,
+  PrintSidesName,
+  PrintSidesOption,
   SheetItem,
   SheetLayoutOverrides,
   SheetLayoutSettings,
   SheetPackingOptions,
+  SheetPage,
   SheetPlacement,
+  SheetSide,
+  SheetSlot,
 } from "./sheet.types";

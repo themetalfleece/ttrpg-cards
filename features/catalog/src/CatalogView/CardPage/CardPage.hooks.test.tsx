@@ -28,7 +28,7 @@ function entries(count: number): readonly Card[] {
   );
 }
 
-/** One entry's cards on one sheet, as a test reads them. */
+/** One entry's cards at one place on a page, as a test reads them. */
 interface Placement {
   readonly id: string;
   readonly from: number;
@@ -38,9 +38,11 @@ interface Placement {
 interface FillHarness {
   /** The fill as it stands after the last render. */
   latest: () => PageFill;
-  /** The cards on each sheet, which is what a reader sees move. */
+  /** The cards on each page, which is what a reader sees move. */
   arrangement: () => Placement[][];
-  /** How many cards each sheet holds. */
+  /** Which slot each page's cards sit in, in the order they are drawn. */
+  slotIndices: () => number[][];
+  /** How many cards each page holds. */
   totals: () => number[];
   /** Says what an entry cost, and whether that came from a measurement. */
   report: (
@@ -55,9 +57,10 @@ interface FillHarness {
 /** A page fill mounted on its own, so a test can drive what it is told. */
 function renderFill(options: {
   cards: readonly Card[];
+  sheet?: SheetLayout;
 }): FillHarness {
   const layout = CardLayout.default();
-  const sheet = SheetLayout.default();
+  const sheet = options.sheet ?? SheetLayout.default();
   const container = document.createElement("div");
 
   document.body.append(container);
@@ -107,16 +110,20 @@ function renderFill(options: {
   return {
     latest,
     arrangement: () =>
-      latest().sheets.map((run) =>
-        run.map((placement) => ({
-          id: placement.item.id,
-          from: placement.from,
-          count: placement.count,
+      latest().pages.map((page) =>
+        page.slots.map((slot) => ({
+          id: slot.item.id,
+          from: slot.from,
+          count: slot.count,
         })),
       ),
+    slotIndices: () =>
+      latest().pages.map((page) =>
+        page.slots.map((slot) => slot.index),
+      ),
     totals: () =>
-      latest().sheets.map((run) =>
-        run.reduce((cards, placement) => cards + placement.count, 0),
+      latest().pages.map((page) =>
+        page.slots.reduce((cards, slot) => cards + slot.count, 0),
       ),
     report: (cardId, faceCount, measured = true) => {
       act(() => {
@@ -274,5 +281,75 @@ describe("usePageFill", () => {
     page.report(first.id, 1);
 
     expect(page.arrangement()[0]?.[0]?.count).toBe(1);
+  });
+});
+
+describe("usePageFill, printed on both sides", () => {
+  const sheet = SheetLayout.default().with({ sides: "double" });
+  const capacity = sheet.capacityFor({
+    layout: CardLayout.default(),
+  });
+
+  it("pairs a back with every front, blank or not", () => {
+    const page = renderFill({ cards: entries(2), sheet });
+
+    expect(page.latest().pages.map((one) => one.side)).toEqual([
+      "front",
+      "back",
+    ]);
+    expect(page.totals()).toEqual([2, 0]);
+  });
+
+  // The measurement round that costs the most on one side costs nothing here:
+  // the back of the slot the entry is already on is exactly where its second
+  // card goes, so nothing below it has to move.
+  it("takes an entry's second card onto its own back without moving anything", () => {
+    const page = renderFill({ cards: entries(3), sheet });
+    const first = entries(3)[0];
+
+    if (first === undefined) {
+      throw new Error("The page holds nothing");
+    }
+
+    const before = page.arrangement()[0];
+
+    page.report(first.id, 2);
+
+    expect(page.arrangement()[0]).toEqual(before);
+    expect(page.arrangement()[1]).toEqual([
+      { id: first.id, from: 1, count: 1 },
+    ]);
+  });
+
+  // Portrait paper flipped on the long edge, so the back of the first slot in
+  // a row is the last slot of that row.
+  it("puts a continuation at the mirror of its front slot", () => {
+    const page = renderFill({ cards: entries(1), sheet });
+    const only = entries(1)[0];
+
+    if (only === undefined) {
+      throw new Error("The page holds nothing");
+    }
+
+    page.report(only.id, 2);
+
+    expect(page.slotIndices()[0]).toEqual([0]);
+    expect(page.slotIndices()[1]).toEqual([
+      sheet.columnsFor({ layout: CardLayout.default() }) - 1,
+    ]);
+  });
+
+  it("lays an entry that grew out ahead of the ones that did not", () => {
+    const cards = entries(capacity);
+    const page = renderFill({ cards, sheet });
+    const last = cards.at(-1);
+
+    if (last === undefined) {
+      throw new Error("The page holds nothing");
+    }
+
+    page.report(last.id, 2);
+
+    expect(page.arrangement()[0]?.[0]?.id).toBe(last.id);
   });
 });

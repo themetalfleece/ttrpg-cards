@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 
 import {
-  FIRST_SHEET,
+  FIRST_PAGE,
   MEDIA_CHANGE_EVENT,
+  PAGE_GROWTH,
   PRINT_EVENT,
   PRINT_MEDIA,
   SETTLED_FRAMES,
-  SHEET_GROWTH,
 } from "./CardPage.constants";
 import type {
   FaceCountReport,
@@ -19,13 +19,15 @@ import type {
 const NOTHING_COUNTED: ReadonlyMap<string, number> = new Map();
 
 /**
- * The entries laid out across as many sheets as they need, worked out as they
+ * The entries laid out across as many pages as they need, worked out as they
  * are measured.
  *
  * How many cards an entry becomes is only known once the browser has laid it
- * out, and by then the sheets have already been filled. So they fill
+ * out, and by then the pages have already been filled. So they fill
  * optimistically, every entry reports what it cost, and `SheetLayout.paginate`
- * moves whatever no longer fits onto the sheet after it.
+ * moves whatever no longer fits onto the sheet after it. Printed on both sides
+ * it moves less: an entry that grows from one card to two fills the back of
+ * the slot it is already on rather than displacing anything.
  *
  * That settles rather than oscillates only because a guess never lowers a
  * count, which is the invariant `fill` is written against and which is
@@ -90,7 +92,7 @@ export function usePageFill({
     });
   }, []);
 
-  const sheets = useMemo(
+  const pages = useMemo(
     () => sheet.paginate({ items: cards, layout, faceCounts }),
     [sheet, cards, layout, faceCounts],
   );
@@ -119,37 +121,39 @@ export function usePageFill({
     return () => {
       cancelAnimationFrame(frame);
     };
-  }, [sheets, faceCounts]);
+  }, [pages, faceCounts]);
 
-  return { sheets, reportFaceCount, settled };
+  return { pages, reportFaceCount, settled };
 }
 
 /**
- * How many of the sheets to put on the page right now, which grows by one a
- * frame until they are all on it.
+ * How many of the pages to put up right now, which doubles each frame until
+ * they are all up.
  *
- * Every card on a sheet measures itself the moment it mounts, and a measure is
+ * Every card on a page measures itself the moment it mounts, and a measure is
  * a style write and a forced layout in a row. Mounting the lot in one commit
  * means one paint at the end of all of them, so a reader who brings a set
  * worth printing watches a blank page with the tab locked up behind it: three
- * hundred cards is nine seconds of nothing, measured. Starting at one sheet
- * and doubling puts the first on screen in the time one sheet takes, lets the
- * gaps between frames carry a scroll or a click, and still finishes in about
- * the time the whole commit took.
+ * hundred cards is nine seconds of nothing, measured. Starting at one page and
+ * doubling puts the first on screen in the time one page takes, lets the gaps
+ * between frames carry a scroll or a click, and still finishes in about the
+ * time the whole commit took.
  *
- * A print does not wait for any of that, so this puts every sheet up the
- * moment one starts. The flush is what makes them real before the browser
- * draws pages rather than a frame afterwards.
+ * A print does not wait for any of that, so this puts every page up the moment
+ * one starts. The flush is what makes them real before the browser draws pages
+ * rather than a frame afterwards. That matters more printed on both sides than
+ * on one: a front left behind is a missing page, and a missing page moves
+ * every back after it onto the wrong front.
  *
  * It makes them real, not measured. An entry works out whether it needs a
  * second card in a microtask, and nothing that runs inside the browser's own
- * print call can wait for one, so the sheets are all there while the newest
+ * print call can wait for one, so the pages are all there while the newest
  * entries on them are still one card each. Closing that is the print button's
  * job, not this hook's: it asks first and prints once the page says it is
- * finished. A print the browser starts on its own gets the sheets and takes
+ * finished. A print the browser starts on its own gets the pages and takes
  * its chances with the splits, because there is nothing to hold it with.
  *
- * A layout change is not reset back to the first sheet. Emptying the page and
+ * A layout change is not reset back to the first page. Emptying the run and
  * filling it again under someone who only asked for larger type reads as a
  * fault rather than as progress. The cost is known and kept: a size change
  * re-measures everything already up in one commit, so a large set freezes
@@ -157,8 +161,8 @@ export function usePageFill({
  * different one, and it is waiting here for whoever decides the flash is the
  * lesser evil.
  */
-export function useSheetsShown(total: number): number {
-  const [shown, setShown] = useState(FIRST_SHEET);
+export function usePagesShown(total: number): number {
+  const [shown, setShown] = useState(FIRST_PAGE);
 
   useEffect(() => {
     if (shown >= total) {
@@ -166,7 +170,7 @@ export function useSheetsShown(total: number): number {
     }
 
     const frame = requestAnimationFrame(() => {
-      setShown((count) => count * SHEET_GROWTH);
+      setShown((count) => count * PAGE_GROWTH);
     });
 
     return () => {

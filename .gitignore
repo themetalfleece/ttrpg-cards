@@ -14,6 +14,10 @@ next-env.d.ts
 # Local-only notes. Kept as a glob so no tracked file names a specific one.
 *.local.md
 
+# Local agent tooling config. The file alone rather than the directory, so a
+# shared .claude/settings.json can still be checked in.
+.claude/settings.local.json
+
 # Local environment overrides
 .env
 .env.*

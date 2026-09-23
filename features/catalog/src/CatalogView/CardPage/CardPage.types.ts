@@ -6,7 +6,8 @@ import type {
 } from "@ttrpg-cards/card";
 import type {
   SheetLayout,
-  SheetPlacement,
+  SheetPage,
+  SheetSlot,
 } from "@ttrpg-cards/printer";
 
 /** Cards laid out on one sheet. */
@@ -51,7 +52,10 @@ export type CardPageCustomProperty =
   | "--page-height"
   | "--page-margin"
   | "--page-card-gap"
-  | "--page-grid-inset";
+  | "--page-grid-inset"
+  | "--page-grid-row-inset"
+  | "--page-slot-width"
+  | "--page-slot-height";
 
 /** Those properties with their values, ready to set as an inline style. */
 export type CardPageStyle = Readonly<
@@ -84,15 +88,31 @@ export interface UsePageFillOptions {
   sheet: SheetLayout;
 }
 
-/** The sheets the entries fill, and the way entries report their cost. */
+/** The pages the entries fill, and the way entries report their cost. */
 export interface PageFill {
-  /** One run of cards per sheet, in reading order. */
-  readonly sheets: readonly (readonly SheetPlacement<Card>[])[];
+  /**
+   * The pages, in print order. One per sheet for a job printed on one side,
+   * front and back pairs for one printed on both.
+   */
+  readonly pages: readonly SheetPage<Card>[];
   /** Told what an entry turned out to cost. Stable, so an entry reports once. */
   readonly reportFaceCount: (report: FaceCountReport) => void;
   /**
-   * Whether the sheets have stopped moving. False again the moment a
+   * Whether the pages have stopped moving. False again the moment a
    * measurement lands, so it gates rather than only announcing once.
    */
   readonly settled: boolean;
 }
+
+/**
+ * One position on a page: an entry's cards, or the blank that holds an empty
+ * slot open.
+ *
+ * A page lays its cards out in reading order and wraps at the margin, so a
+ * card only lands at the slot it was given if everything before it is there.
+ * A back page's slots are the mirror of its front's, with nothing at all
+ * wherever a front card had no continuation, so the gaps have to be drawn.
+ */
+export type PageCell =
+  | { readonly kind: "cards"; readonly slot: SheetSlot<Card> }
+  | { readonly kind: "blank"; readonly index: number };

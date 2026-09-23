@@ -11,15 +11,19 @@
   },
   "scripts": {
     "lint": "eslint . --max-warnings 0",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
+    "test": "vitest run --passWithNoTests",
+    "verify:print": "node scripts/verify-print.ts"
   },
   "dependencies": {
     "@ttrpg-cards/card": "workspace:*",
     "@ttrpg-cards/core": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "eslint": "catalog:",
+    "pdfjs-dist": "catalog:",
+    "playwright": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

@@ -66,6 +66,10 @@ export function CatalogView({ className }: CatalogViewProps) {
           onPaperChange={selection.choosePaper}
           orientation={selection.orientation}
           onOrientationChange={selection.chooseOrientation}
+          sides={selection.sides}
+          onSidesChange={selection.chooseSides}
+          flipEdge={selection.flipEdge}
+          onFlipEdgeChange={selection.chooseFlipEdge}
           printable={printable}
         />
         <ScreenCalibration

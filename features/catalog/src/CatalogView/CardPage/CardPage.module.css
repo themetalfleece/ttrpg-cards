@@ -28,8 +28,16 @@
    * on both sides, and the row keeps that inset as slack. A row asked to be
    * exactly as wide as its cards drops its last column on a sub-pixel
    * rounding, and 63mm three times is exactly that kind of arithmetic.
+   *
+   * The top carries the same thing down the sheet, and it is zero unless the
+   * job is two sided. A back slot is the mirror of its front across the grid,
+   * so the two only line up if the grid sits in the middle of the axis being
+   * reversed, and align-content leaves the whole vertical leftover under the
+   * last row instead. `align-content` stays as it is: the padding is what
+   * centres the grid, and the rows keep starting on the same columns.
    */
-  padding: var(--page-margin) var(--page-margin) var(--page-margin)
+  padding: calc(var(--page-margin) + var(--page-grid-row-inset))
+    var(--page-margin) var(--page-margin)
     calc(var(--page-margin) + var(--page-grid-inset));
   /*
    * Drawn as an outline rather than a border, because an outline takes no
@@ -89,10 +97,26 @@
  * rather than flowing on from this one. `break-before` on every sheet but the
  * first, rather than `break-after` on every sheet, because the latter puts a
  * blank sheet out of the printer after the last one.
+ *
+ * The gap is the preview's alone, and the print block takes it back off.
  */
 .page + .page {
   margin-top: var(--space-5);
   break-before: page;
+}
+
+/*
+ * A slot with nothing on it, which a back page has wherever the card on the
+ * front of that slot had no continuation.
+ *
+ * It is a card's worth of nothing rather than no element at all, because the
+ * page lays its cards out in reading order and wraps at the margin: a card
+ * only lands at the slot the mirror gave it if everything before it is there
+ * to push it along. Drawn as blank paper, since that is what comes out.
+ */
+.blank {
+  width: var(--page-slot-width);
+  height: var(--page-slot-height);
 }
 
 /* Reads as a note on an empty sheet rather than as something to be cut out.
@@ -116,9 +140,9 @@
   .page {
     width: auto;
     min-height: 0;
-    /* The page box already supplies the margin, so only the inset is left,
-       and it stays on the left for the reason above. */
-    padding: 0 0 0 var(--page-grid-inset);
+    /* The page box already supplies the margin, so only the insets are left,
+       and they stay on the leading edges for the reason above. */
+    padding: var(--page-grid-row-inset) 0 0 var(--page-grid-inset);
     outline: none;
     box-shadow: none;
     /* The sheet paints its paper rather than going transparent, because what
@@ -128,5 +152,14 @@
        background graphics option. */
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  .page + .page {
+    /* The gap between sheets is preview chrome. On paper there is nothing
+       between two pieces of paper to space out, and whether a margin survives
+       a forced break is the engine's call: one that keeps it starts a back
+       page's grid lower than its front's, which is the misregistration the
+       row inset exists to close. */
+    margin-top: 0;
   }
 }

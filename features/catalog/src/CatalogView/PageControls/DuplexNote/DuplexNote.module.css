@@ -1,0 +1,26 @@
+/*
+ * The printer settings the sheets assume, under the controls that caused them.
+ *
+ * A full row of its own inside the wrapping control row, so it reads as a
+ * consequence of the choice above it rather than as another control in the
+ * line. Quieter than the labels beside it: it is what to do once, not
+ * something to keep picking.
+ */
+.note {
+  flex-basis: 100%;
+  max-width: 60ch;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}
+
+.summary {
+  margin: 0;
+}
+
+.instructions {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}

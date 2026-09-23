@@ -4,7 +4,10 @@ import { ChoiceGroup } from "@ttrpg-cards/ui/ChoiceGroup";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 
+import { DuplexNote } from "./DuplexNote/DuplexNote.component";
 import {
+  FLIP_EDGE_LABEL,
+  FLIP_EDGE_OPTIONS,
   ORIENTATION_LABEL,
   ORIENTATION_OPTIONS,
   PAPER_LABEL,
@@ -12,6 +15,8 @@ import {
   PRINT_LABEL,
   PRINT_WAITING_LABEL,
   PRINT_WAIT_MILLISECONDS,
+  SIDES_LABEL,
+  SIDES_OPTIONS,
 } from "./PageControls.constants";
 import styles from "./PageControls.module.css";
 import type { PageControlsProps } from "./PageControls.types";
@@ -19,9 +24,15 @@ import type { PageControlsProps } from "./PageControls.types";
 /**
  * The sheet the cards are printed on, and the button that prints it.
  *
- * Both choices come from the print package's own records, so the preview and
+ * Every choice comes from the print package's own records, so the preview and
  * the `@page` rule the sheet sets are working from the same numbers: what the
  * reader picks here is the paper that comes out of the printer.
+ *
+ * Printing on both sides brings a second control and a note with it, and both
+ * only while it is on. Which edge the printer turns the sheet about decides
+ * where a back slot lands, and it is not something a browser can find out or
+ * set, so it is asked for here and then said back to the reader as the setting
+ * to match in the print dialog.
  *
  * The button waits for the page rather than racing it. A browser draws the
  * page as it stands the moment it is asked, and the page arrives over several
@@ -40,10 +51,15 @@ export function PageControls({
   onPaperChange,
   orientation,
   onOrientationChange,
+  sides,
+  onSidesChange,
+  flipEdge,
+  onFlipEdgeChange,
   printable,
   className,
 }: PageControlsProps) {
   const [waiting, setWaiting] = useState(false);
+  const duplex = sides === "double";
 
   // The latest answer, readable from a callback that outlives the render it
   // was made in. The button's wait is a loop over frames, and each turn of it
@@ -84,6 +100,20 @@ export function PageControls({
         value={orientation}
         onValueChange={onOrientationChange}
       />
+      <ChoiceGroup
+        label={SIDES_LABEL}
+        options={SIDES_OPTIONS}
+        value={sides}
+        onValueChange={onSidesChange}
+      />
+      {duplex ? (
+        <ChoiceGroup
+          label={FLIP_EDGE_LABEL}
+          options={FLIP_EDGE_OPTIONS}
+          value={flipEdge}
+          onValueChange={onFlipEdgeChange}
+        />
+      ) : null}
       <Button
         className={styles.print}
         onPress={handlePrint}
@@ -91,6 +121,7 @@ export function PageControls({
       >
         {waiting ? PRINT_WAITING_LABEL : PRINT_LABEL}
       </Button>
+      {duplex ? <DuplexNote flipEdge={flipEdge} /> : null}
     </Box>
   );
 }

@@ -163,6 +163,46 @@ function renderFirstFrame(cards: readonly Card[]): HTMLElement {
   return container;
 }
 
+/** What every sheet on the page says about whether it has finished arriving. */
+function busyStates(container: HTMLElement): (string | null)[] {
+  return sheetsOn(container).map((sheet) =>
+    sheet.getAttribute("aria-busy"),
+  );
+}
+
+/**
+ * Lets frames go by until every sheet says it has stopped arriving.
+ *
+ * The page concludes that from frames rather than from an event, and the
+ * sheets go up over several of them, so a test that wants the finished answer
+ * has to let the frames happen. It gives up well after the point the page
+ * should have got there, so a page that never settles fails on what the sheets
+ * say rather than by hanging.
+ */
+async function waitForArrival(container: HTMLElement): Promise<void> {
+  for (let attempt = 0; attempt < ARRIVAL_ATTEMPTS; attempt += 1) {
+    const states = busyStates(container);
+
+    if (
+      states.length > 0 &&
+      states.every((state) => state === "false")
+    ) {
+      return;
+    }
+
+    await act(async () => {
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          resolve();
+        });
+      });
+    });
+  }
+}
+
+/** How many frames `waitForArrival` will wait through before giving up. */
+const ARRIVAL_ATTEMPTS = 40;
+
 afterEach(() => {
   while (restores.length > 0) {
     restores.pop()?.();
@@ -239,6 +279,31 @@ describe("CardPage", () => {
     });
 
     expect(sheetsOn(container)).toHaveLength(3);
+  });
+
+  // The print button holds on this, and so does the headless print
+  // verification, which has no other way to tell a page that has finished from
+  // one that is midway through measuring itself.
+  it("says a sheet is still arriving, and says when it has arrived", async () => {
+    const container = renderFirstFrame(manyEntries);
+
+    expect(busyStates(container)).toEqual(["true"]);
+
+    await waitForArrival(container);
+
+    expect(busyStates(container)).toEqual([
+      "false",
+      "false",
+      "false",
+    ]);
+  });
+
+  it("says a sheet with room for nothing is not still arriving", async () => {
+    const container = await renderPage({ layout: oversizedLayout });
+
+    await waitForArrival(container);
+
+    expect(busyStates(container)).toEqual(["false"]);
   });
 
   it("tells the printer which paper the sheet is", async () => {

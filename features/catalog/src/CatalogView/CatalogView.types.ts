@@ -8,8 +8,10 @@ import type {
 } from "@ttrpg-cards/card";
 import type { ImportIssue } from "@ttrpg-cards/importer";
 import type {
+  FlipEdgeName,
   PageOrientation,
   PageSizeName,
+  PrintSidesName,
   SheetLayout,
 } from "@ttrpg-cards/printer";
 import type { CatalogAttribution } from "@ttrpg-cards/srd";
@@ -79,7 +81,18 @@ export interface CatalogSelection {
   readonly paper: PageSizeName;
   /** Which way round that paper goes. */
   readonly orientation: PageOrientation;
-  /** The two of those as the sheet the cards are laid out on. */
+  /**
+   * How many sides of it the job prints on. Two puts an entry's continuation
+   * on the back of its own slot, so one cut gives a card carrying all of it.
+   */
+  readonly sides: PrintSidesName;
+  /**
+   * The edge the printer turns the sheet about, which is what decides where a
+   * back slot lands. Kept whichever way the job prints, so turning two sided
+   * off and on again does not lose the answer.
+   */
+  readonly flipEdge: FlipEdgeName;
+  /** All of those as the sheet the cards are laid out on. */
   readonly sheet: SheetLayout;
   /**
    * The entries the sheet draws from, in the order they were written: the
@@ -110,6 +123,10 @@ export interface CatalogSelection {
   readonly choosePaper: (paper: PageSizeName) => void;
   /** Picks which way round the paper goes. */
   readonly chooseOrientation: (orientation: PageOrientation) => void;
+  /** Picks how many sides of the paper the job prints on. */
+  readonly chooseSides: (sides: PrintSidesName) => void;
+  /** Picks the edge the printer turns the sheet about. */
+  readonly chooseFlipEdge: (flipEdge: FlipEdgeName) => void;
   /** Sets how much the preview is scaled by. */
   readonly chooseScreenScale: (scale: number) => void;
   /** Reads the documents the reader brought, adding their cards to the page. */
