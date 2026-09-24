@@ -30,6 +30,19 @@ the same template literal before it lived here.
 value to them. `NumericRange` rather than `Range`, because the DOM already has one and a
 consumer importing ours would shadow it.
 
+`snapToRange` is the same thing plus the step, and it is separate because most callers want only
+the clamp: a dragged control already moves in steps, and rounding a value that is merely being
+held in bounds would move it for no reason. Reach for it where a reader **types** a measurement,
+which is the one case where a number arrives at whatever precision they felt like and then goes
+into text a browser reads. It answers at the precision the range is written at, read off how the
+range's own numbers are spelled rather than computed, because a step of 0.25 needs two places and
+its logarithm says one.
+
+**The range wins over the step.** A range whose span is not a whole number of steps has no step
+sitting on its own maximum, so rounding to the nearest one would carry a value past it. The
+answer comes back on the end instead: what reads this is deciding whether something fits, and a
+value it was told is in range had better be.
+
 ### `screen`
 
 `SCREEN_SCALE_RANGE`, which exists because **a CSS millimetre is not a millimetre**: an inch is

@@ -2,14 +2,25 @@ import type { CardLayout } from "@ttrpg-cards/card";
 import type { Dimensions, NamedOption } from "@ttrpg-cards/core";
 
 import type {
+  CUT_GUIDE_NAMES,
   FLIP_EDGE_NAMES,
   PAGE_ORIENTATION_NAMES,
+  PAGE_SIZE_NAMES,
   PAGE_SIZE_PRESETS,
   PRINT_SIDES_NAMES,
 } from "./sheet.constants";
 
-/** The name of a paper the app prints on. */
-export type PageSizeName = keyof typeof PAGE_SIZE_PRESETS;
+/**
+ * The name of a published paper, which carries its own measurements.
+ *
+ * Narrower than {@link PageSizeName}: a default or anything else that has to
+ * resolve to a size on its own wants this one, because the custom paper only
+ * means something alongside the dimensions a reader gave it.
+ */
+export type PaperName = keyof typeof PAGE_SIZE_PRESETS;
+
+/** The name of a paper a reader can pick, published or their own. */
+export type PageSizeName = keyof typeof PAGE_SIZE_NAMES;
 
 /** Which way round the paper goes. */
 export type PageOrientation = keyof typeof PAGE_ORIENTATION_NAMES;
@@ -19,6 +30,9 @@ export type PrintSidesName = keyof typeof PRINT_SIDES_NAMES;
 
 /** The edge a duplex printer turns the sheet about between one side and the other. */
 export type FlipEdgeName = keyof typeof FLIP_EDGE_NAMES;
+
+/** Whether the sheet carries the marks a blade is lined up against. */
+export type CutGuidesName = keyof typeof CUT_GUIDE_NAMES;
 
 /**
  * A paper: its dimensions in portrait, the way paper sizes are published, and
@@ -41,10 +55,29 @@ export type PrintSidesOption = NamedOption<PrintSidesName>;
 /** One selectable flip edge. */
 export type FlipEdgeOption = NamedOption<FlipEdgeName>;
 
-/** A complete sheet setup, every field a name from a closed set. */
+/** One selectable cut guide setting. */
+export type CutGuidesOption = NamedOption<CutGuidesName>;
+
+/**
+ * A complete sheet setup: a name from a closed set for every choice, and the
+ * one measurement a reader is allowed to give.
+ *
+ * `custom` is why a sheet is validated at all. Everything else here is picked
+ * from a record, so it cannot be wrong; a paper somebody typed can be, and
+ * {@link SheetLayout} holds it to {@link CUSTOM_PAGE_SIDE_RANGE} on the way
+ * in rather than letting a measurement nobody checked reach a `@page` rule.
+ */
 export interface SheetLayoutSettings {
   /** The paper it is printed on, which is also where its margin comes from. */
   readonly size: PageSizeName;
+  /**
+   * The paper the reader measured, used when `size` names the custom one.
+   *
+   * Carried whichever paper is selected, the way the flip edge is carried
+   * whichever way the job prints: picking A4 and coming back should not lose
+   * what they typed.
+   */
+  readonly custom: Dimensions;
   /** Which way round that paper goes. */
   readonly orientation: PageOrientation;
   /** How many sides of it the job prints on. */
@@ -55,6 +88,8 @@ export interface SheetLayoutSettings {
    * printing off and on again does not lose the answer.
    */
   readonly flipEdge: FlipEdgeName;
+  /** Whether it carries the marks a blade is lined up against. */
+  readonly cutGuides: CutGuidesName;
 }
 
 /**
@@ -63,9 +98,11 @@ export interface SheetLayoutSettings {
  */
 export interface SheetLayoutOverrides {
   size?: PageSizeName;
+  custom?: Dimensions;
   orientation?: PageOrientation;
   sides?: PrintSidesName;
   flipEdge?: FlipEdgeName;
+  cutGuides?: CutGuidesName;
 }
 
 /** Which face of a piece of paper a page is. */

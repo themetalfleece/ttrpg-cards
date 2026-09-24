@@ -4,6 +4,7 @@ import type { Browser, Page } from "playwright";
 import {
   ADD_BUTTON,
   CARD_SELECTOR,
+  GRAYSCALE_STYLE,
   PAGE_SELECTOR,
   PASTE_FIELD,
   SAMPLE_MILLISECONDS,
@@ -66,6 +67,25 @@ export class PrintPreview {
       .getByRole("radiogroup", { name: options.control })
       .getByRole("radio", { name: options.option, exact: true })
       .click();
+  }
+
+  /**
+   * Types `value` into the field called `field`, the way a reader measuring
+   * their own paper does.
+   *
+   * Left afterwards, because a field holding a measurement reports when the
+   * reader has finished with it rather than on every keystroke: a number
+   * being held to a range would otherwise be corrected halfway through being
+   * typed.
+   */
+  async fill(options: {
+    field: string;
+    value: number;
+  }): Promise<void> {
+    const box = this.#page.getByLabel(options.field, { exact: true });
+
+    await box.fill(String(options.value));
+    await box.blur();
   }
 
   /**
@@ -168,6 +188,48 @@ export class PrintPreview {
 
           return "";
         };
+        // The cut guides are painted on the card's own pseudo-elements, so
+        // what says they are there is that both paint something and that
+        // they stand outside the card's box. A negative offset is how far
+        // out they reach, which is where a blade needs them.
+        const guidesOn = (
+          card: Element,
+          millimetresPerPixel: number,
+        ) => {
+          const marks = ["::before", "::after"].map((part) =>
+            getComputedStyle(card, part),
+          );
+          const reaches = marks.map((mark) =>
+            Math.min(
+              -Number.parseFloat(mark.left),
+              -Number.parseFloat(mark.top),
+            ),
+          );
+
+          // Painted means pixels, not layers. A pseudo-element with a
+          // gradient in it still covers nothing when a side of its
+          // background is zero, which is exactly how the guides come off, so
+          // every layer has to measure something on both axes before this
+          // says a mark was drawn.
+          const covers = (size: string) =>
+            size.split(",").every((layer) =>
+              layer
+                .trim()
+                .split(/\s+/)
+                .every((side) => Number.parseFloat(side) > 0),
+            );
+
+          return {
+            painted: marks.every(
+              (mark) =>
+                mark.content !== "none" &&
+                mark.backgroundImage !== "none" &&
+                covers(mark.backgroundSize),
+            ),
+            reachMillimetres:
+              Math.min(...reaches) * millimetresPerPixel,
+          };
+        };
 
         return [...document.querySelectorAll(query.pages)].map(
           (section) => {
@@ -212,6 +274,10 @@ export class PrintPreview {
                     bottomMillimetres:
                       heightMillimetres -
                       (box.bottom - paper.top) * millimetresPerPixel,
+                    widthMillimetres: box.width * millimetresPerPixel,
+                    heightMillimetres:
+                      box.height * millimetresPerPixel,
+                    guides: guidesOn(card, millimetresPerPixel),
                   };
                 },
               ),
@@ -269,6 +335,40 @@ export class PrintPreview {
       fullPage: true,
       clip,
     });
+  }
+
+  /**
+   * Writes a picture of one page with the colour drained out of it, which is
+   * what a mono laser puts on paper.
+   *
+   * Most of these sheets come off a printer with one toner cartridge, and a
+   * theme that separates two regions by hue alone reads on screen and
+   * disappears there. The contrast tests prove that from the numbers; this is
+   * the same claim as something somebody can look at.
+   *
+   * The filter goes on for the capture and comes straight off: it makes the
+   * element it is on a containing block, which is not a thing to leave over a
+   * page that is going to be measured again.
+   */
+  async captureGrayscale(options: {
+    number: number;
+    file: string;
+  }): Promise<void> {
+    await this.#page.addStyleTag({ content: GRAYSCALE_STYLE });
+
+    try {
+      await this.capture(options);
+    } finally {
+      // Found by what it says rather than by the handle `addStyleTag` hands
+      // back, which is typed as a node and has no way to take itself out.
+      await this.#page.evaluate((css) => {
+        for (const tag of document.querySelectorAll("style")) {
+          if (tag.textContent === css) {
+            tag.remove();
+          }
+        }
+      }, GRAYSCALE_STYLE);
+    }
   }
 
   /**

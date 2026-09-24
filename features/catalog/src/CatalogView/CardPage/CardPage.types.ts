@@ -55,7 +55,8 @@ export type CardPageCustomProperty =
   | "--page-grid-inset"
   | "--page-grid-row-inset"
   | "--page-slot-width"
-  | "--page-slot-height";
+  | "--page-slot-height"
+  | "--page-guide-reach";
 
 /** Those properties with their values, ready to set as an inline style. */
 export type CardPageStyle = Readonly<

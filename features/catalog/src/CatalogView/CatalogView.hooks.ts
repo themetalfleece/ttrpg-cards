@@ -10,15 +10,8 @@ import {
   type CardTypefaceId,
 } from "@ttrpg-cards/card";
 import {
-  DEFAULT_FLIP_EDGE,
-  DEFAULT_PAGE_ORIENTATION,
-  DEFAULT_PAGE_SIZE,
-  DEFAULT_PRINT_SIDES,
   SheetLayout,
-  type FlipEdgeName,
-  type PageOrientation,
-  type PageSizeName,
-  type PrintSidesName,
+  type SheetLayoutOverrides,
 } from "@ttrpg-cards/printer";
 import { SCREEN_SCALE_RANGE, clampToRange } from "@ttrpg-cards/core";
 import {
@@ -44,15 +37,17 @@ import type {
  * The card layout is built once per size and text size rather than per
  * render: a card measures itself against the layout it is handed, so a fresh
  * identity would re-measure every card on the page each time anything else
- * changed. The sheet is held for the same reason.
+ * changed. The sheet keeps its identity for the same reason, which it gets
+ * for free by being the state rather than something derived from it.
  *
  * Size and text size are one layout between them, so both go into that memo.
  * Either one changing is a re-measure and has to be, because how large the
  * type is set is exactly what decides whether an entry fits on one card.
  *
- * The two are kept apart on purpose. Changing the paper or the way round it
- * goes changes how many cards come off the sheet, but not what any one of them
- * says, so the card layout keeps its identity and nothing re-measures.
+ * The layout and the sheet are kept apart on purpose. Changing the paper or
+ * the way round it goes changes how many cards come off the sheet, but not
+ * what any one of them says, so the card layout keeps its identity and
+ * nothing re-measures.
  *
  * The cards are everything the page could lay out, in order. Which of them fit
  * is the sheet's own question, because it is the only thing that knows what
@@ -77,17 +72,13 @@ export function useCatalogSelection(): CatalogSelection {
   const [typeface, setTypeface] = useState<CardTypefaceId>(
     DEFAULT_CARD_TYPEFACE_ID,
   );
-  const [paper, setPaper] = useState<PageSizeName>(DEFAULT_PAGE_SIZE);
-  const [orientation, setOrientation] = useState<PageOrientation>(
-    DEFAULT_PAGE_ORIENTATION,
-  );
-  const [sides, setSides] = useState<PrintSidesName>(
-    DEFAULT_PRINT_SIDES,
-  );
-  // Held whether or not the job is printing on both sides, so turning that off
-  // and on again comes back to the edge the reader already picked.
-  const [flipEdge, setFlipEdge] =
-    useState<FlipEdgeName>(DEFAULT_FLIP_EDGE);
+  // The sheet is the state rather than the settings it is built from. It is
+  // an immutable value object that already answers every question about them
+  // and already knows how to derive the next one, so holding the parts as
+  // well would be the same thing written twice. It also puts every change
+  // through the constructor, which is what holds a paper the reader typed to
+  // what a sheet can be.
+  const [sheet, setSheet] = useState(() => SheetLayout.default());
   const [screenScale, setScreenScale] = useState(
     SCREEN_SCALE_RANGE.initial,
   );
@@ -143,16 +134,25 @@ export function useCatalogSelection(): CatalogSelection {
       clampToRange({ value: scale, range: SCREEN_SCALE_RANGE }),
     );
   }, []);
+  // One way in for every sheet setting. `with` gives back a new sheet, which
+  // is the identity a renderer needs to re-run anyway, and it normalises what
+  // it was handed on the way, so a paper the reader typed comes back out at a
+  // size a sheet can be.
+  //
+  // It builds one every time it is called, including when the override
+  // changes nothing, so what keeps a re-pick of the value already showing
+  // from re-laying the page out is the control staying quiet rather than the
+  // sheet. A control that reports a pick it was already on wants comparing
+  // here first.
+  const changeSheet = useCallback(
+    (overrides: SheetLayoutOverrides) => {
+      setSheet((current) => current.with(overrides));
+    },
+    [],
+  );
   const layout = useMemo(
     () => CardLayout.fromPreset({ preset: size, textSize }),
     [size, textSize],
-  );
-  const sheet = useMemo(
-    () =>
-      new SheetLayout({
-        settings: { size: paper, orientation, sides, flipEdge },
-      }),
-    [paper, orientation, sides, flipEdge],
   );
   // One identity per set of cards, for the same reason the layout has one per
   // size: a fresh array would re-measure every card on the sheet. The cards
@@ -184,10 +184,6 @@ export function useCatalogSelection(): CatalogSelection {
     size,
     textSize,
     layout,
-    paper,
-    orientation,
-    sides,
-    flipEdge,
     sheet,
     cards,
     attributions: showsBundledCards
@@ -203,10 +199,7 @@ export function useCatalogSelection(): CatalogSelection {
     chooseTypeface: setTypeface,
     chooseSize: setSize,
     chooseTextSize: setTextSize,
-    choosePaper: setPaper,
-    chooseOrientation: setOrientation,
-    chooseSides: setSides,
-    chooseFlipEdge: setFlipEdge,
+    changeSheet,
     chooseScreenScale,
     importMarkdown,
     clearImport,

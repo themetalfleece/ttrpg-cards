@@ -7,8 +7,11 @@ describe("millimetres", () => {
     expect(millimetres(63)).toBe("63mm");
   });
 
-  it("keeps a fraction, because paper sizes have them", () => {
-    expect(millimetres(215.9)).toBe("215.9mm");
+  // Paper sizes have them, which is why this is worth pinning. A published
+  // paper's own measurement is not the example, because those are written
+  // down in one place and this package is not it.
+  it("keeps a fraction", () => {
+    expect(millimetres(101.6)).toBe("101.6mm");
   });
 
   it("writes no length at all as zero rather than as nothing", () => {

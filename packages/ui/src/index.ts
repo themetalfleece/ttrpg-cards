@@ -5,6 +5,7 @@ export * from "./CardFace";
 export * from "./CardSetView";
 export * from "./ChoiceGroup";
 export * from "./FilePicker";
+export * from "./NumberField";
 export * from "./RichTextView";
 export * from "./Separator";
 export * from "./Slider";

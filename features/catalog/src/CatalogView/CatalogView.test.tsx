@@ -13,7 +13,10 @@ import {
 import { SCREEN_SCALE_RANGE } from "@ttrpg-cards/core";
 import { SLIDER_HINT_LABEL } from "@ttrpg-cards/ui/Slider";
 import {
+  CUSTOM_PAGE_SIDE_RANGE,
+  CUSTOM_PAGE_SIZE,
   PAGE_ORIENTATIONS,
+  PAGE_SIZE_NAMES,
   PAGE_SIZES,
   SheetLayout,
 } from "@ttrpg-cards/printer";
@@ -29,6 +32,9 @@ import {
   unreadLine,
 } from "./ImportPanel/ImportPanel.constants";
 import {
+  CUSTOM_HEIGHT_LABEL,
+  CUSTOM_WIDTH_LABEL,
+  CUT_GUIDE_LABEL,
   FLIP_EDGE_LABEL,
   PRINT_LABEL,
   PRINT_WAITING_LABEL,
@@ -82,6 +88,28 @@ const LATER_CARD = [
   "It burns down to nothing by morning.",
   "",
 ].join("\n");
+
+/**
+ * The paper the reader measures in these tests.
+ *
+ * Larger than any published one on purpose, so it holds sixteen cards where
+ * A4 holds nine: a grid that came out different is what says the layout read
+ * the paper rather than assuming a sheet. Larger also means fewer sheets to
+ * lay out and measure than a small paper would, which keeps the test quick.
+ */
+const MEASURED_PAPER = {
+  widthMillimetres: 300,
+  heightMillimetres: 420,
+};
+
+/**
+ * How long a test that lays the whole sample out several times over is given.
+ *
+ * Every card on every sheet measures itself as it mounts, so a test that
+ * changes the paper four times pays for four of those. The rest of this file
+ * changes it once or twice and fits the default.
+ */
+const ROUND_TRIP_TIMEOUT_MILLISECONDS = 20_000;
 
 /** Enough frames for the page to stop moving, and how long one lasts. */
 const FRAMES_TO_PASS = 10;
@@ -224,6 +252,46 @@ async function pick(
 
   await act(async () => {
     choice.click();
+  });
+}
+
+/**
+ * Types `text` into the field asking `label` and leaves it, which is what
+ * makes the field report.
+ *
+ * Through the element's own value setter rather than the property, because
+ * React patches that property to track what it last rendered: written to
+ * directly, the tracker moves with it and React reports no change at all.
+ */
+async function fill(
+  container: HTMLElement,
+  label: string,
+  text: string,
+): Promise<void> {
+  const named = Array.from(container.querySelectorAll("label")).find(
+    (candidate) => candidate.textContent === label,
+  );
+  const field = named?.htmlFor
+    ? container.querySelector<HTMLInputElement>(
+        `#${CSS.escape(named.htmlFor)}`,
+      )
+    : null;
+
+  if (field === null || field === undefined) {
+    throw new Error(`No field labelled ${label}`);
+  }
+
+  const setValue = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  )?.set;
+
+  await act(async () => {
+    setValue?.call(field, text);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    field.dispatchEvent(
+      new FocusEvent("focusout", { bubbles: true }),
+    );
   });
 }
 
@@ -607,6 +675,119 @@ describe("CatalogView", () => {
     }
   });
 
+  // The one paper a reader measures rather than picks, so the one that has to
+  // travel the whole way: into the grid, into the preview's own lengths, and
+  // into the rule that tells the printer what to put it on.
+  it("lays out on a paper the reader measured", async () => {
+    const container = await renderView();
+    const measured = SheetLayout.default().with({
+      size: CUSTOM_PAGE_SIZE,
+      custom: MEASURED_PAPER,
+    });
+
+    await pick(container, PAGE_SIZE_NAMES[CUSTOM_PAGE_SIZE]);
+    await fill(
+      container,
+      CUSTOM_WIDTH_LABEL,
+      String(MEASURED_PAPER.widthMillimetres),
+    );
+    await fill(
+      container,
+      CUSTOM_HEIGHT_LABEL,
+      String(MEASURED_PAPER.heightMillimetres),
+    );
+
+    expect(
+      pageSurface(container).style.getPropertyValue("--page-width"),
+    ).toBe(`${measured.widthMillimetres}mm`);
+    expect(printedPageRule(container)).toBe(
+      `@page { size: ${measured.widthMillimetres}mm ${measured.heightMillimetres}mm; margin: 0; }`,
+    );
+    expect(facesOnSheet(container)).toHaveLength(
+      capacityAt({ sheet: measured }),
+    );
+    // Sixteen rather than the nine A4 holds, which is what says the grid was
+    // laid out against the paper the reader gave it.
+    expect(
+      measured.capacityFor({ layout: CardLayout.default() }),
+    ).toBe(16);
+  });
+
+  // Typed rather than picked, so it is the only setting on the page that can
+  // arrive as something a sheet cannot be.
+  it("holds a paper the reader typed to what a sheet can be", async () => {
+    const container = await renderView();
+
+    await pick(container, PAGE_SIZE_NAMES[CUSTOM_PAGE_SIZE]);
+    await fill(container, CUSTOM_WIDTH_LABEL, "9000");
+
+    expect(
+      pageSurface(container).style.getPropertyValue("--page-width"),
+    ).toBe(`${CUSTOM_PAGE_SIDE_RANGE.maximum}mm`);
+    expect(printedPageRule(container)).not.toContain("9000");
+  });
+
+  // That the sheet keeps the measurement is pinned in `SheetLayout.test.ts`
+  // already. What this one adds is that the field shows it again afterwards,
+  // which only the wiring can answer.
+  //
+  // Four complete relayouts of the sample to get there, which is more than
+  // any other test here asks for, so it says how long it needs rather than
+  // running out on a slower machine.
+  it(
+    "keeps what the reader measured while a published paper is picked",
+    { timeout: ROUND_TRIP_TIMEOUT_MILLISECONDS },
+    async () => {
+      const container = await renderView();
+      const width = String(MEASURED_PAPER.widthMillimetres);
+
+      await pick(container, PAGE_SIZE_NAMES[CUSTOM_PAGE_SIZE]);
+      await fill(container, CUSTOM_WIDTH_LABEL, width);
+      await pick(container, "US Letter");
+      await pick(container, PAGE_SIZE_NAMES[CUSTOM_PAGE_SIZE]);
+
+      expect(
+        pageSurface(container).style.getPropertyValue("--page-width"),
+      ).toBe(`${width}mm`);
+    },
+  );
+
+  // The marks go in the blank around every card, so what says they are on is
+  // how far they reach out of it. Nothing at all is how the sheet says it
+  // carries none, which is what keeps the stylesheet free of a second rule.
+  //
+  // A sheet starts carrying none, because marks are ink a reader asks for.
+  it("carries no cut guides until they are asked for, then does", async () => {
+    const container = await renderView();
+    const guided = SheetLayout.default().with({ cutGuides: "on" });
+    const reach = () =>
+      pageSurface(container).style.getPropertyValue(
+        "--page-guide-reach",
+      );
+
+    expect(reach()).toBe("0mm");
+
+    await pickFrom(container, CUT_GUIDE_LABEL, "On");
+
+    expect(reach()).toBe(`${guided.cutGuideReachMillimetres}mm`);
+    expect(reach()).not.toBe("0mm");
+
+    await pickFrom(container, CUT_GUIDE_LABEL, "Off");
+
+    expect(reach()).toBe("0mm");
+  });
+
+  // Guides are painted in the blank that is thrown away with the offcut, so
+  // turning them on cannot cost the sheet a card.
+  it("fits the same cards on the sheet either way", async () => {
+    const container = await renderView();
+    const plain = facesOnSheet(container).length;
+
+    await pickFrom(container, CUT_GUIDE_LABEL, "On");
+
+    expect(facesOnSheet(container)).toHaveLength(plain);
+  });
+
   // Off is today's behavior exactly, which is what a reader who never touches
   // the control is relying on.
   it("prints one page a sheet until the reader asks for two sides", async () => {
@@ -677,15 +858,17 @@ describe("CatalogView", () => {
   // whatever run of it is left, and what prints is not what was previewed.
   it("tells the printer the same paper the preview is drawn at", async () => {
     const container = await renderView();
+    const a4 = SheetLayout.default();
+    const letter = a4.with({ size: "letter" });
 
     expect(printedPageRule(container)).toBe(
-      "@page { size: 210mm 297mm; margin: 8mm; }",
+      `@page { size: ${a4.widthMillimetres}mm ${a4.heightMillimetres}mm; margin: 0; }`,
     );
 
     await pick(container, "US Letter");
 
     expect(printedPageRule(container)).toBe(
-      "@page { size: 215.9mm 279.4mm; margin: 5mm; }",
+      `@page { size: ${letter.widthMillimetres}mm ${letter.heightMillimetres}mm; margin: 0; }`,
     );
   });
 

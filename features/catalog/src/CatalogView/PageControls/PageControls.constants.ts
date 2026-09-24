@@ -1,8 +1,10 @@
 import {
+  CUT_GUIDES,
   FLIP_EDGES,
   PAGE_ORIENTATIONS,
   PAGE_SIZES,
   PRINT_SIDES,
+  type CutGuidesName,
   type FlipEdgeName,
   type PageOrientation,
   type PageSizeName,
@@ -33,12 +35,27 @@ export const SIDES_OPTIONS: readonly ChoiceGroupOption<PrintSidesName>[] =
 export const FLIP_EDGE_OPTIONS: readonly ChoiceGroupOption<FlipEdgeName>[] =
   choicesFrom(FLIP_EDGES);
 
+export const CUT_GUIDE_OPTIONS: readonly ChoiceGroupOption<CutGuidesName>[] =
+  choicesFrom(CUT_GUIDES);
+
 /** What each control is asking, and what the action says. */
 export const PAPER_LABEL = "Paper";
 export const ORIENTATION_LABEL = "Orientation";
 export const SIDES_LABEL = "Sides";
 export const FLIP_EDGE_LABEL = "Flip on";
+export const CUT_GUIDE_LABEL = "Cut guides";
 export const PRINT_LABEL = "Print";
+
+/**
+ * What the two fields for the reader's own paper ask, and the unit they are
+ * in.
+ *
+ * Measured in portrait, the way every paper size is published, because the
+ * orientation control turns this paper afterwards like any other.
+ */
+export const CUSTOM_WIDTH_LABEL = "Paper width";
+export const CUSTOM_HEIGHT_LABEL = "Paper height";
+export const CUSTOM_SIZE_UNIT = "mm";
 
 /**
  * What the button says while it is waiting for the page to finish.

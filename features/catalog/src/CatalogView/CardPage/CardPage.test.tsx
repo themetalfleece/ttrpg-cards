@@ -308,9 +308,10 @@ describe("CardPage", () => {
 
   it("tells the printer which paper the sheet is", async () => {
     const container = await renderPage({});
+    const sheet = SheetLayout.default();
 
     expect(container.querySelector("style")?.textContent).toBe(
-      "@page { size: 210mm 297mm; margin: 8mm; }",
+      `@page { size: ${sheet.widthMillimetres}mm ${sheet.heightMillimetres}mm; margin: 0; }`,
     );
   });
 });

@@ -46,6 +46,9 @@ import type { CardPageProps } from "./CardPage.types";
  * run from the first frame, so a reader is told how much is coming rather than
  * watching the total climb.
  *
+ * Every slot carries cut guides, blanks included: a blank on a back page is
+ * behind a card on its front, so that slot is cut out like any other.
+ *
  * A card larger than the paper says so instead. It is a dead end otherwise:
  * nothing renders, so nothing measures, so the answer never changes until the
  * reader picks differently, and a blank sheet does not tell them that is what
@@ -140,7 +143,7 @@ export const CardPage = memo(function CardPage({
                 // Holds a slot open so the cards after it land where the
                 // mirror put them. Nothing to read, so nothing is read out.
                 key={`blank:${cell.index}`}
-                className={styles.blank}
+                className={clsx(styles.blank, styles.guides)}
                 aria-hidden="true"
               />
             ) : (
@@ -155,6 +158,7 @@ export const CardPage = memo(function CardPage({
                 from={cell.slot.from}
                 count={cell.slot.count}
                 onFaceCount={reportFaceCount}
+                faceClassName={styles.guides}
               />
             ),
           )}

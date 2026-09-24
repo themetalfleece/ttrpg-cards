@@ -6,6 +6,17 @@
   align-items: flex-end;
 }
 
+/*
+ * The two measurements of the reader's own paper, kept together so they read
+ * as one answer rather than as two more settings. A tighter gap than the row
+ * around them for the same reason.
+ */
+.customPaper {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
 /* Sits on the baseline of the choice tracks beside it rather than above them. */
 .print {
   align-self: flex-end;

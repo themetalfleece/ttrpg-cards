@@ -27,6 +27,7 @@ export function CardPageEntry({
   from,
   count,
   onFaceCount,
+  faceClassName,
 }: CardPageEntryProps) {
   const { set, measured } = useCardSet({ card, layout, typeface });
 
@@ -47,6 +48,7 @@ export function CardPageEntry({
           position={face.position}
           theme={theme}
           typeface={typeface}
+          className={faceClassName}
         />
       ))}
     </>

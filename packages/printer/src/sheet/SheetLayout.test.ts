@@ -4,13 +4,20 @@ import { describe, expect, it } from "vitest";
 import { SheetLayout } from "./SheetLayout";
 import {
   CARD_GAP_MILLIMETRES,
+  CUSTOM_PAGE_SIDE_RANGE,
+  CUSTOM_PAGE_SIZE,
+  CUT_GUIDES,
+  DEFAULT_CUSTOM_PAGE_SIZE,
+  DEFAULT_CUT_GUIDES,
   DEFAULT_FLIP_EDGE,
   DEFAULT_PRINT_SIDES,
   FLIP_EDGES,
   PAGE_ORIENTATIONS,
+  PAGE_SIZE_NAMES,
   PAGE_SIZE_PRESETS,
   PAGE_SIZES,
   PRINT_SIDES,
+  PRINTER_SAFE_MARGIN_MILLIMETRES,
 } from "./sheet.constants";
 import type {
   SheetItem,
@@ -26,9 +33,11 @@ function everySheet(): SheetLayout[] {
         new SheetLayout({
           settings: {
             size: size.id,
+            custom: DEFAULT_CUSTOM_PAGE_SIZE,
             orientation: orientation.id,
             sides: DEFAULT_PRINT_SIDES,
             flipEdge: DEFAULT_FLIP_EDGE,
+            cutGuides: DEFAULT_CUT_GUIDES,
           },
         }),
     ),
@@ -799,10 +808,218 @@ describe("SheetLayout.with", () => {
   });
 });
 
+describe("the custom paper", () => {
+  /** A sheet on the reader's own paper, at the measurements they gave. */
+  function customSheet(custom: {
+    widthMillimetres: number;
+    heightMillimetres: number;
+  }): SheetLayout {
+    return SheetLayout.default().with({
+      size: CUSTOM_PAGE_SIZE,
+      custom,
+    });
+  }
+
+  it("is the size the reader gave it", () => {
+    const sheet = customSheet({
+      widthMillimetres: 148,
+      heightMillimetres: 210,
+    });
+
+    expect(sheet.widthMillimetres).toBe(148);
+    expect(sheet.heightMillimetres).toBe(210);
+  });
+
+  it("turns the way round like any other paper", () => {
+    const sheet = customSheet({
+      widthMillimetres: 148,
+      heightMillimetres: 210,
+    }).with({ orientation: "landscape" });
+
+    expect(sheet.widthMillimetres).toBe(210);
+    expect(sheet.heightMillimetres).toBe(148);
+  });
+
+  it("keeps the printer's edge clear", () => {
+    expect(
+      customSheet({
+        widthMillimetres: 148,
+        heightMillimetres: 210,
+      }).marginMillimetres,
+    ).toBe(PRINTER_SAFE_MARGIN_MILLIMETRES);
+  });
+
+  // The one measurement on a sheet that did not come from a record, so the one
+  // that can be wrong. A paper of nine metres would reach `@page` as text.
+  it("holds a measurement the reader typed to what a sheet can be", () => {
+    const sheet = customSheet({
+      widthMillimetres: 9000,
+      heightMillimetres: -40,
+    });
+
+    expect(sheet.widthMillimetres).toBe(
+      CUSTOM_PAGE_SIDE_RANGE.maximum,
+    );
+    expect(sheet.heightMillimetres).toBe(
+      CUSTOM_PAGE_SIDE_RANGE.minimum,
+    );
+  });
+
+  it("brings a measurement onto the precision paper is stated at", () => {
+    const sheet = customSheet({
+      widthMillimetres: 148.06,
+      heightMillimetres: 209.94,
+    });
+
+    expect(sheet.widthMillimetres).toBe(148.1);
+    expect(sheet.heightMillimetres).toBe(209.9);
+  });
+
+  it("falls back rather than laying out against a number that is not one", () => {
+    const sheet = customSheet({
+      widthMillimetres: Number.NaN,
+      heightMillimetres: Number.POSITIVE_INFINITY,
+    });
+
+    expect(sheet.widthMillimetres).toBe(
+      CUSTOM_PAGE_SIDE_RANGE.initial,
+    );
+    expect(sheet.heightMillimetres).toBe(
+      CUSTOM_PAGE_SIDE_RANGE.initial,
+    );
+  });
+
+  // Carried whichever paper is selected, the way the flip edge is carried
+  // whichever way the job prints.
+  it("keeps what the reader typed while a published paper is picked", () => {
+    const sheet = customSheet({
+      widthMillimetres: 148,
+      heightMillimetres: 210,
+    }).with({ size: "letter" });
+
+    expect(sheet.widthMillimetres).toBe(215.9);
+    expect(sheet.customMillimetres).toEqual({
+      widthMillimetres: 148,
+      heightMillimetres: 210,
+    });
+    expect(
+      sheet.with({ size: CUSTOM_PAGE_SIZE }).widthMillimetres,
+    ).toBe(148);
+  });
+
+  // Nothing downstream may learn that a paper can be custom: the grid, the
+  // mirror and the pagination all read millimetres off the resolved paper.
+  it("lays out like a published paper of the same size", () => {
+    const layout = CardLayout.default();
+    const custom = customSheet({
+      widthMillimetres: PAGE_SIZE_PRESETS.a4.widthMillimetres,
+      heightMillimetres: PAGE_SIZE_PRESETS.a4.heightMillimetres,
+    });
+    const published = SheetLayout.default();
+
+    // A4's own margin is wider than the printer floor, so the two only agree
+    // on the grid once the custom one is given the same blank to work in.
+    expect(custom.contentWidthMillimetres).toBeGreaterThan(
+      published.contentWidthMillimetres,
+    );
+    expect(custom.capacityFor({ layout })).toBe(
+      published.capacityFor({ layout }),
+    );
+    expect(custom.mirrorAxis).toBe(published.mirrorAxis);
+  });
+
+  it("starts at the default paper's measurements", () => {
+    expect(DEFAULT_CUSTOM_PAGE_SIZE).toEqual({
+      widthMillimetres: PAGE_SIZE_PRESETS.a4.widthMillimetres,
+      heightMillimetres: PAGE_SIZE_PRESETS.a4.heightMillimetres,
+    });
+  });
+});
+
+describe("SheetLayout.cutGuideReachMillimetres", () => {
+  // Both settings are named rather than taken from the default, so neither
+  // case quietly stops being covered the day the default moves. It has moved
+  // once already.
+  const guided = SheetLayout.default().with({ cutGuides: "on" });
+  const plain = SheetLayout.default().with({ cutGuides: "off" });
+
+  // A measurement rather than a flag, so nothing drawing a sheet has to ask
+  // whether the guides are on: a reach of nothing draws nothing.
+  it("is the gap between two cards, so two neighbours' marks meet", () => {
+    expect(guided.cutGuideReachMillimetres).toBe(
+      CARD_GAP_MILLIMETRES,
+    );
+    expect(guided.cutGuideReachMillimetres).toBe(
+      guided.cardGapMillimetres,
+    );
+  });
+
+  it("is nothing at all once the guides are turned off", () => {
+    expect(plain.cutGuideReachMillimetres).toBe(0);
+  });
+
+  // The marks sit in the blank at the edge of the grid, which is the margin,
+  // so a reach past it would put ink where a printer cannot draw.
+  it("never reaches past the margin on any sheet the records allow", () => {
+    for (const sheet of everySheet()) {
+      expect(
+        sheet.with({ cutGuides: "on" }).cutGuideReachMillimetres,
+      ).toBeLessThan(sheet.marginMillimetres);
+    }
+  });
+
+  // Guides take no room: they are painted in the blank that is thrown away
+  // with the offcut, so turning them on cannot cost the sheet a column.
+  it("changes nothing about how much fits on the sheet", () => {
+    const layout = CardLayout.default();
+
+    expect(plain.capacityFor({ layout })).toBe(
+      guided.capacityFor({ layout }),
+    );
+    expect(plain.gridInsetMillimetres({ layout })).toBe(
+      guided.gridInsetMillimetres({ layout }),
+    );
+    expect(plain.marginMillimetres).toBe(guided.marginMillimetres);
+  });
+});
+
 describe("the page records", () => {
   it("names every paper exactly once", () => {
     expect(PAGE_SIZES.map((paper) => paper.id)).toEqual(
-      Object.keys(PAGE_SIZE_PRESETS),
+      Object.keys(PAGE_SIZE_NAMES),
+    );
+  });
+
+  it("offers every published paper, and the reader's own last", () => {
+    expect(PAGE_SIZES.map((paper) => paper.id)).toEqual([
+      ...Object.keys(PAGE_SIZE_PRESETS),
+      CUSTOM_PAGE_SIZE,
+    ]);
+  });
+
+  // The whole point of the margin: a printer cannot put ink on the last few
+  // millimetres of a sheet, so a paper whose margin dips under that floor
+  // prints its outermost column of cards with a slice missing.
+  it("keeps every paper's margin clear of the printer's edge", () => {
+    for (const paper of Object.values(PAGE_SIZE_PRESETS)) {
+      expect(paper.marginMillimetres).toBeGreaterThanOrEqual(
+        PRINTER_SAFE_MARGIN_MILLIMETRES,
+      );
+    }
+  });
+
+  // A guide reaches out from a card by the gap, and the blank it reaches into
+  // at the edge of the sheet is the margin. Reaching past it would put a mark
+  // where a printer cannot draw one, or off the paper altogether.
+  it("leaves room in every margin for a cut guide", () => {
+    for (const paper of Object.values(PAGE_SIZE_PRESETS)) {
+      expect(paper.marginMillimetres).toBeGreaterThan(
+        CARD_GAP_MILLIMETRES,
+      );
+    }
+
+    expect(PRINTER_SAFE_MARGIN_MILLIMETRES).toBeGreaterThan(
+      CARD_GAP_MILLIMETRES,
     );
   });
 
@@ -827,6 +1044,21 @@ describe("the page records", () => {
     ]);
   });
 
+  it("offers both cut guide settings and nothing else", () => {
+    expect(CUT_GUIDES.map((setting) => setting.id)).toEqual([
+      "on",
+      "off",
+    ]);
+  });
+
+  // Marks are ink, and ink is the reader's to ask for: a sheet that is not
+  // going under a blade should not come out carrying them.
+  it("starts with cut guides off, because they are ink nobody asked for", () => {
+    expect(DEFAULT_CUT_GUIDES).toBe("off");
+    expect(SheetLayout.default().cutGuides).toBe("off");
+    expect(SheetLayout.default().cutGuideReachMillimetres).toBe(0);
+  });
+
   it("starts one sided, flipped on the long edge", () => {
     expect(DEFAULT_PRINT_SIDES).toBe("single");
     expect(DEFAULT_FLIP_EDGE).toBe("long-edge");
@@ -839,6 +1071,7 @@ describe("the page records", () => {
       ...PAGE_ORIENTATIONS,
       ...PRINT_SIDES,
       ...FLIP_EDGES,
+      ...CUT_GUIDES,
     ]) {
       expect(option.name).not.toBe("");
     }

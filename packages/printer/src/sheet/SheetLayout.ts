@@ -1,18 +1,26 @@
 import type { CardLayout } from "@ttrpg-cards/card";
+import { snapToRange, type Dimensions } from "@ttrpg-cards/core";
 
 import {
   CARD_GAP_MILLIMETRES,
+  CUSTOM_PAGE_SIDE_RANGE,
+  CUSTOM_PAGE_SIZE,
+  DEFAULT_CUSTOM_PAGE_SIZE,
+  DEFAULT_CUT_GUIDES,
   DEFAULT_FLIP_EDGE,
   DEFAULT_PAGE_ORIENTATION,
   DEFAULT_PAGE_SIZE,
   DEFAULT_PRINT_SIDES,
   PAGE_SIZE_PRESETS,
+  PRINTER_SAFE_MARGIN_MILLIMETRES,
 } from "./sheet.constants";
 import type {
+  CutGuidesName,
   DuplexSlot,
   FlipEdgeName,
   MirrorAxis,
   PageOrientation,
+  PagePreset,
   PageSizeName,
   PrintSidesName,
   SheetItem,
@@ -32,10 +40,12 @@ import type {
  * consumers lay out against the same sheet at once, and a renderer needs the
  * new identity to re-run anyway.
  *
- * Every field is a name from a closed set, so unlike a card layout there is
- * nothing here to validate: a sheet cannot be built out of measurements a
- * caller made up. `SheetLayout.test.ts` holds every combination the records
- * allow to a content area a card could sit in.
+ * Every choice is a name from a closed set, with one exception: the custom
+ * paper's dimensions, which the reader types. Those are the only thing here
+ * that can be wrong, so they are the only thing checked, and they are checked
+ * once, on the way in. Everything past the constructor reads a resolved paper
+ * and never learns which kind it got. `SheetLayout.test.ts` holds every
+ * combination the records allow to a content area a card could sit in.
  *
  * @example
  * ```ts
@@ -47,9 +57,24 @@ import type {
  */
 export class SheetLayout {
   readonly #settings: SheetLayoutSettings;
+  /**
+   * The paper as measurements, whichever kind was named.
+   *
+   * Resolved once here so that nothing below has to ask again, which is what
+   * keeps the custom paper from reaching the layout as a special case.
+   */
+  readonly #paper: PagePreset;
 
   constructor(options: { settings: SheetLayoutSettings }) {
-    this.#settings = { ...options.settings };
+    const custom = SheetLayout.#usableCustomPaper(
+      options.settings.custom,
+    );
+
+    this.#settings = { ...options.settings, custom };
+    this.#paper = SheetLayout.#paperFor({
+      size: options.settings.size,
+      custom,
+    });
   }
 
   /** The sheet everything starts on: A4, portrait, printed one side. */
@@ -57,11 +82,52 @@ export class SheetLayout {
     return new SheetLayout({
       settings: {
         size: DEFAULT_PAGE_SIZE,
+        custom: DEFAULT_CUSTOM_PAGE_SIZE,
         orientation: DEFAULT_PAGE_ORIENTATION,
         sides: DEFAULT_PRINT_SIDES,
         flipEdge: DEFAULT_FLIP_EDGE,
+        cutGuides: DEFAULT_CUT_GUIDES,
       },
     });
+  }
+
+  /**
+   * The reader's paper held to what a sheet can be, so a measurement nobody
+   * checked never reaches a layout or a `@page` rule.
+   *
+   * Snapped as well as clamped, because the number comes from a field rather
+   * than a slider: a paper stated to more places than the range is set at
+   * would print as text no printer needs and no reader typed.
+   */
+  static #usableCustomPaper(custom: Dimensions): Dimensions {
+    return {
+      widthMillimetres: snapToRange({
+        value: custom.widthMillimetres,
+        range: CUSTOM_PAGE_SIDE_RANGE,
+      }),
+      heightMillimetres: snapToRange({
+        value: custom.heightMillimetres,
+        range: CUSTOM_PAGE_SIDE_RANGE,
+      }),
+    };
+  }
+
+  /**
+   * The named paper as a preset: a published one straight from the record, the
+   * reader's own with the margin no printer can print inside.
+   */
+  static #paperFor(options: {
+    size: PageSizeName;
+    custom: Dimensions;
+  }): PagePreset {
+    if (options.size === CUSTOM_PAGE_SIZE) {
+      return {
+        ...options.custom,
+        marginMillimetres: PRINTER_SAFE_MARGIN_MILLIMETRES,
+      };
+    }
+
+    return PAGE_SIZE_PRESETS[options.size];
   }
 
   /** The underlying record, as it is stored and serialised. */
@@ -97,18 +163,21 @@ export class SheetLayout {
     return this.#settings.sides === "double";
   }
 
+  /** The measurements the reader gave the custom paper, whichever is picked. */
+  get customMillimetres(): Dimensions {
+    return { ...this.#settings.custom };
+  }
+
   /** How wide the sheet is, the way round it is. */
   get widthMillimetres(): number {
-    const { widthMillimetres, heightMillimetres } =
-      PAGE_SIZE_PRESETS[this.#settings.size];
+    const { widthMillimetres, heightMillimetres } = this.#paper;
 
     return this.#isPortrait ? widthMillimetres : heightMillimetres;
   }
 
   /** How tall the sheet is, the way round it is. */
   get heightMillimetres(): number {
-    const { widthMillimetres, heightMillimetres } =
-      PAGE_SIZE_PRESETS[this.#settings.size];
+    const { widthMillimetres, heightMillimetres } = this.#paper;
 
     return this.#isPortrait ? heightMillimetres : widthMillimetres;
   }
@@ -117,15 +186,51 @@ export class SheetLayout {
    * How much blank is kept inside each edge.
    *
    * A property of the paper rather than a preference, because it is whatever
-   * the grid does not need and the two papers have different amounts spare.
+   * the grid does not need and no two papers have the same amount spare. A
+   * published one carries the number that arithmetic came to; a custom one
+   * gets the printer's unprintable edge, which is all that can be known about
+   * a paper nobody worked a grid out for.
    */
   get marginMillimetres(): number {
-    return PAGE_SIZE_PRESETS[this.#settings.size].marginMillimetres;
+    return this.#paper.marginMillimetres;
   }
 
   /** The blank between two cards on this sheet. */
   get cardGapMillimetres(): number {
     return CARD_GAP_MILLIMETRES;
+  }
+
+  /** Whether the sheet carries the marks a blade is lined up against. */
+  get cutGuides(): CutGuidesName {
+    return this.#settings.cutGuides;
+  }
+
+  /**
+   * How far a cut guide reaches out from the edge of a card, or zero when the
+   * sheet carries none.
+   *
+   * A measurement rather than a flag, so nothing drawing a sheet has to ask
+   * whether the guides are on: it lays them out at whatever reach it is given
+   * and a reach of nothing draws nothing. The same trick as the row inset,
+   * which is zero on a sheet printed one side.
+   *
+   * On, it is the gap between two cards exactly, so two neighbours' marks
+   * meet and the cut line runs unbroken across the blank between them. At the
+   * edge of the grid the same reach goes into the margin, which every paper
+   * keeps wider than the gap, so a mark is never put where a printer cannot
+   * draw one.
+   *
+   * @example
+   * ```ts
+   * SheetLayout.default().cutGuideReachMillimetres; // 0
+   * SheetLayout.default().with({ cutGuides: "on" })
+   *   .cutGuideReachMillimetres; // 2
+   * ```
+   */
+  get cutGuideReachMillimetres(): number {
+    return this.#settings.cutGuides === "on"
+      ? CARD_GAP_MILLIMETRES
+      : 0;
   }
 
   /** How wide the area inside the margins is, which is what cards fill. */

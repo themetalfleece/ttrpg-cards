@@ -1,0 +1,62 @@
+.field {
+  /* Wide enough for a four figure measurement and its unit, narrow enough
+     that two of them sit side by side in a row of controls. */
+  --number-field-width: 7rem;
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: var(--number-field-width);
+}
+
+.label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+}
+
+/*
+ * The box the number sits in, with the unit at its far end. The border is on
+ * this rather than on the input, so the unit sits inside the field instead of
+ * beside it, and focus is shown around the pair.
+ */
+.control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  box-sizing: border-box;
+  height: var(--control-height);
+  padding-inline: var(--space-2);
+  border: var(--border-width-hairline) solid var(--color-border);
+  border-radius: var(--radius-medium);
+  background-color: var(--color-surface-raised);
+
+  &:focus-within {
+    border-color: var(--color-accent);
+    outline: var(--border-width-hairline) solid
+      var(--color-focus-ring);
+  }
+}
+
+.input {
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+
+  /* The border and the focus ring are the control's, so the input inside it
+     draws neither of its own. */
+  &:focus {
+    outline: none;
+  }
+}
+
+.unit {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}

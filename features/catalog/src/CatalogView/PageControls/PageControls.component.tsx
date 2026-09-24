@@ -1,11 +1,26 @@
+import {
+  CUSTOM_PAGE_SIDE_RANGE,
+  CUSTOM_PAGE_SIZE,
+  type CutGuidesName,
+  type FlipEdgeName,
+  type PageOrientation,
+  type PageSizeName,
+  type PrintSidesName,
+} from "@ttrpg-cards/printer";
 import { Box } from "@ttrpg-cards/ui/Box";
 import { Button } from "@ttrpg-cards/ui/Button";
 import { ChoiceGroup } from "@ttrpg-cards/ui/ChoiceGroup";
+import { NumberField } from "@ttrpg-cards/ui/NumberField";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 
 import { DuplexNote } from "./DuplexNote/DuplexNote.component";
 import {
+  CUSTOM_HEIGHT_LABEL,
+  CUSTOM_SIZE_UNIT,
+  CUSTOM_WIDTH_LABEL,
+  CUT_GUIDE_LABEL,
+  CUT_GUIDE_OPTIONS,
   FLIP_EDGE_LABEL,
   FLIP_EDGE_OPTIONS,
   ORIENTATION_LABEL,
@@ -28,6 +43,16 @@ import type { PageControlsProps } from "./PageControls.types";
  * the `@page` rule the sheet sets are working from the same numbers: what the
  * reader picks here is the paper that comes out of the printer.
  *
+ * It takes the sheet itself and hands back one changed setting, rather than
+ * taking ten props. The sheet already answers every question these controls
+ * ask and `SheetLayout.with` is already the shape of a change, so a pair of
+ * props per control would be a second copy of a surface that exists.
+ *
+ * One of those papers is the reader's own, and picking it brings out two
+ * fields for what it measures. They are the only numbers on this panel that
+ * are typed rather than picked, which is why they are the only ones held to a
+ * range on the way back: everything else cannot be wrong.
+ *
  * Printing on both sides brings a second control and a note with it, and both
  * only while it is on. Which edge the printer turns the sheet about decides
  * where a back slot lands, and it is not something a browser can find out or
@@ -47,19 +72,53 @@ import type { PageControlsProps } from "./PageControls.types";
  * measured. So the button lets it arrive and prints what it arrives at.
  */
 export function PageControls({
-  paper,
-  onPaperChange,
-  orientation,
-  onOrientationChange,
-  sides,
-  onSidesChange,
-  flipEdge,
-  onFlipEdgeChange,
+  sheet,
+  onSheetChange,
   printable,
   className,
 }: PageControlsProps) {
   const [waiting, setWaiting] = useState(false);
-  const duplex = sides === "double";
+  const custom = sheet.size === CUSTOM_PAGE_SIZE;
+  // What the reader measured, as the sheet settled on it rather than as they
+  // typed it, so a number past the range shows corrected in the field.
+  const customPaper = sheet.customMillimetres;
+
+  // Each control reports its own setting and nothing else, which is what
+  // lets the sheet keep the rest. A control takes a value of its own type,
+  // so these are what turn one into a change to the sheet.
+  const handlePaperChange = (size: PageSizeName) => {
+    onSheetChange({ size });
+  };
+
+  const handleOrientationChange = (orientation: PageOrientation) => {
+    onSheetChange({ orientation });
+  };
+
+  const handleSidesChange = (sides: PrintSidesName) => {
+    onSheetChange({ sides });
+  };
+
+  const handleFlipEdgeChange = (flipEdge: FlipEdgeName) => {
+    onSheetChange({ flipEdge });
+  };
+
+  const handleCutGuidesChange = (cutGuides: CutGuidesName) => {
+    onSheetChange({ cutGuides });
+  };
+
+  // One side at a time, because the fields are separate and the sheet takes a
+  // paper. The other side comes from what the sheet already holds.
+  const handleCustomWidthChange = (widthMillimetres: number) => {
+    onSheetChange({
+      custom: { ...customPaper, widthMillimetres },
+    });
+  };
+
+  const handleCustomHeightChange = (heightMillimetres: number) => {
+    onSheetChange({
+      custom: { ...customPaper, heightMillimetres },
+    });
+  };
 
   // The latest answer, readable from a callback that outlives the render it
   // was made in. The button's wait is a loop over frames, and each turn of it
@@ -91,29 +150,57 @@ export function PageControls({
       <ChoiceGroup
         label={PAPER_LABEL}
         options={PAPER_OPTIONS}
-        value={paper}
-        onValueChange={onPaperChange}
+        value={sheet.size}
+        onValueChange={handlePaperChange}
       />
+      {custom ? (
+        <Box className={styles.customPaper}>
+          <NumberField
+            label={CUSTOM_WIDTH_LABEL}
+            value={customPaper.widthMillimetres}
+            minimum={CUSTOM_PAGE_SIDE_RANGE.minimum}
+            maximum={CUSTOM_PAGE_SIDE_RANGE.maximum}
+            step={CUSTOM_PAGE_SIDE_RANGE.step}
+            onValueChange={handleCustomWidthChange}
+            unit={CUSTOM_SIZE_UNIT}
+          />
+          <NumberField
+            label={CUSTOM_HEIGHT_LABEL}
+            value={customPaper.heightMillimetres}
+            minimum={CUSTOM_PAGE_SIDE_RANGE.minimum}
+            maximum={CUSTOM_PAGE_SIDE_RANGE.maximum}
+            step={CUSTOM_PAGE_SIDE_RANGE.step}
+            onValueChange={handleCustomHeightChange}
+            unit={CUSTOM_SIZE_UNIT}
+          />
+        </Box>
+      ) : null}
       <ChoiceGroup
         label={ORIENTATION_LABEL}
         options={ORIENTATION_OPTIONS}
-        value={orientation}
-        onValueChange={onOrientationChange}
+        value={sheet.orientation}
+        onValueChange={handleOrientationChange}
       />
       <ChoiceGroup
         label={SIDES_LABEL}
         options={SIDES_OPTIONS}
-        value={sides}
-        onValueChange={onSidesChange}
+        value={sheet.sides}
+        onValueChange={handleSidesChange}
       />
-      {duplex ? (
+      {sheet.duplex ? (
         <ChoiceGroup
           label={FLIP_EDGE_LABEL}
           options={FLIP_EDGE_OPTIONS}
-          value={flipEdge}
-          onValueChange={onFlipEdgeChange}
+          value={sheet.flipEdge}
+          onValueChange={handleFlipEdgeChange}
         />
       ) : null}
+      <ChoiceGroup
+        label={CUT_GUIDE_LABEL}
+        options={CUT_GUIDE_OPTIONS}
+        value={sheet.cutGuides}
+        onValueChange={handleCutGuidesChange}
+      />
       <Button
         className={styles.print}
         onPress={handlePrint}
@@ -121,7 +208,7 @@ export function PageControls({
       >
         {waiting ? PRINT_WAITING_LABEL : PRINT_LABEL}
       </Button>
-      {duplex ? <DuplexNote flipEdge={flipEdge} /> : null}
+      {sheet.duplex ? <DuplexNote flipEdge={sheet.flipEdge} /> : null}
     </Box>
   );
 }

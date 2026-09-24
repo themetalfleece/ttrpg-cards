@@ -1,28 +1,26 @@
 import type {
-  FlipEdgeName,
-  PageOrientation,
-  PageSizeName,
-  PrintSidesName,
+  SheetLayout,
+  SheetLayoutOverrides,
 } from "@ttrpg-cards/printer";
 
 /** What a reader can change about the sheet the cards are printed on. */
 export interface PageControlsProps {
-  /** The paper the sheet is printed on. */
-  paper: PageSizeName;
-  /** Called with the paper the reader picked. */
-  onPaperChange: (paper: PageSizeName) => void;
-  /** Which way round that paper goes. */
-  orientation: PageOrientation;
-  /** Called with the orientation the reader picked. */
-  onOrientationChange: (orientation: PageOrientation) => void;
-  /** How many sides of the paper the job prints on. */
-  sides: PrintSidesName;
-  /** Called with the way of printing the reader picked. */
-  onSidesChange: (sides: PrintSidesName) => void;
-  /** The edge the printer turns the sheet about between the two sides. */
-  flipEdge: FlipEdgeName;
-  /** Called with the flip edge the reader picked. */
-  onFlipEdgeChange: (flipEdge: FlipEdgeName) => void;
+  /**
+   * The sheet as it stands, which is what every control here shows.
+   *
+   * The sheet rather than its settings one by one: it already answers every
+   * question a control asks, including what a paper the reader measured came
+   * out as once it was held to what a sheet can be.
+   */
+  sheet: SheetLayout;
+  /**
+   * Called with the one setting that changed, leaving the rest alone.
+   *
+   * One callback rather than one per control, because that is the shape
+   * `SheetLayout.with` already takes and a list of them here would be a
+   * second copy of the sheet's own surface.
+   */
+  onSheetChange: (overrides: SheetLayoutOverrides) => void;
   /**
    * Whether the page is finished and would print as what is on screen. A
    * print asked for before this is true waits for it.

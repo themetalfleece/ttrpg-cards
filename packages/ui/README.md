@@ -148,6 +148,26 @@ It also takes an optional `hint`, which puts a `Tooltip` on a small mark beside 
 Beside the label and not on the track, because the track is dragged and a bubble opening under a
 pointer mid drag is in the way of the one thing the control is for.
 
+## Typing a value
+
+`NumberField` is the third of that set, for a measurement where the reader already knows the
+number they want and a slider would be a poor way to ask for it.
+
+**It reports when the reader has finished, not on every keystroke.** Half a number is not a
+number: a caller holding the answer to a range would take the 1 off a reader on their way to 148
+and they could never get there. So what is being typed is held in the field, and the caller hears
+about it on blur or on Enter, after which the field goes straight back to showing `value`. That
+is also what makes a correction visible, since what it shows afterwards is whatever the caller
+settled on rather than what was asked for. The range belongs to the caller, because the caller is
+what knows the number means a paper.
+
+**A wheel over it while it has focus leaves the field rather than stepping the number.** This is
+the one place reporting late goes wrong on its own: a browser steps a focused number input on the
+wheel, so a reader who types a measurement and then scrolls down to look at what it did would
+move it without ever seeing it move. Blurring is the fix rather than cancelling the event, because
+React listens for the wheel passively and a `preventDefault` there does nothing. Scrolling away is
+leaving the field anyway, so the blur commits whatever was typed.
+
 ## Saying more when asked
 
 `Tooltip` is an aside about the thing it is attached to, shown on hover and on keyboard focus.

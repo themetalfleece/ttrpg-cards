@@ -8,6 +8,29 @@
  * is what keeps a measurement out of this file.
  */
 .page {
+  /*
+   * How heavy a cut guide is drawn, and in what. A hairline, because it is a
+   * line to lay a blade against rather than something to read, and paper ink
+   * rather than app text: it is printed, so it does not follow the desktop's
+   * colour scheme.
+   */
+  --page-guide-width: 0.2mm;
+  --page-guide-ink: linear-gradient(
+    var(--color-paper-text-muted),
+    var(--color-paper-text-muted)
+  );
+  /* One layer per mark. Each pseudo-element carries four, one out of each
+     corner, and they are all the same hairline. */
+  --page-guide-inks:
+    var(--page-guide-ink), var(--page-guide-ink),
+    var(--page-guide-ink), var(--page-guide-ink);
+  /* Where a mark sits across the line it marks: half its own weight off the
+     card's edge, so the line the blade follows is the middle of the mark
+     rather than one side of it. */
+  --page-guide-offset: calc(
+    var(--page-guide-reach) - var(--page-guide-width) / 2
+  );
+
   box-sizing: border-box;
   display: flex;
   flex-wrap: wrap;
@@ -119,6 +142,73 @@
   height: var(--page-slot-height);
 }
 
+/*
+ * Cut guides: eight short marks in the blank around a card, two running out
+ * from each corner, so a trimmer has a line to lay a blade against.
+ *
+ * They reach out by `--page-guide-reach`, which the sheet sets and which is
+ * the gap between two cards, so the marks of two neighbours meet and the cut
+ * line runs unbroken across the blank between them. At the edge of the grid
+ * the same reach goes into the margin, which every paper keeps wider than the
+ * gap, so a mark is never put where a printer cannot draw one.
+ *
+ * **A sheet carrying no guides sets that reach to nothing, and these rules
+ * then draw nothing.** There is no second set of rules and nothing here asks
+ * whether the guides are on: a mark of no length paints no pixels, and the
+ * pseudo-elements collapse onto the card's own edges. That is why the reach
+ * is a measurement rather than a flag.
+ *
+ * Marks at the corners rather than a line around the card. A drawn outline is
+ * on the card once it is cut out, and any part of it the blade misses shows;
+ * a mark in the blank is thrown away with the offcut whether or not the cut
+ * was exact.
+ *
+ * On pseudo-elements, which take no room. A guide drawn as an element of its
+ * own would be another item in the grid and would cost the sheet a column.
+ * The two carry the same marks turned ninety degrees: the horizontal ones lie
+ * along the card's top and bottom edges, the vertical ones along its sides.
+ */
+.guides {
+  position: relative;
+}
+
+.guides::before,
+.guides::after {
+  content: "";
+  position: absolute;
+  /* Out to where a neighbour's marks come to meet these. */
+  inset: calc(-1 * var(--page-guide-reach));
+  background-repeat: no-repeat;
+  /* A guide the printer drops is not a guide. Background colours come off by
+     default unless the reader finds the background graphics option. */
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  pointer-events: none;
+}
+
+/* The four marks running out sideways, along the card's top and bottom cut
+   lines. */
+.guides::before {
+  background-image: var(--page-guide-inks);
+  background-size: var(--page-guide-reach) var(--page-guide-width);
+  background-position:
+    left 0 top var(--page-guide-offset),
+    right 0 top var(--page-guide-offset),
+    left 0 bottom var(--page-guide-offset),
+    right 0 bottom var(--page-guide-offset);
+}
+
+/* The same four turned ninety degrees, up and down its left and right ones. */
+.guides::after {
+  background-image: var(--page-guide-inks);
+  background-size: var(--page-guide-width) var(--page-guide-reach);
+  background-position:
+    left var(--page-guide-offset) top 0,
+    left var(--page-guide-offset) bottom 0,
+    right var(--page-guide-offset) top 0,
+    right var(--page-guide-offset) bottom 0;
+}
+
 /* Reads as a note on an empty sheet rather than as something to be cut out.
    Ink on paper, like everything else the sheet carries, so it stays legible
    on a white sheet with the app dark around it. */
@@ -129,20 +219,28 @@
 }
 
 /*
- * On paper the page box is the paper, at the size and the margin the reader
- * picked, because the component sets `@page` from the same sheet these
- * properties come from. So the surface drops the width and the padding it used
- * to stand in for them with, along with everything that made it look like paper
- * on a screen, and fills what the page box leaves. The cards keep their
+ * On paper the page box is the whole sheet of paper, because the component
+ * writes `@page` from the same sheet these properties come from and gives that
+ * rule no margin of its own. So the surface keeps the width and the padding it
+ * is drawn at on screen, and the printed geometry is the preview's rather than
+ * nearly it. The blank inside the edges has to be the sheet's own: nothing in
+ * the page box can be drawn in a `@page` margin, and the cut guides at the
+ * outside of the grid reach into exactly that blank.
+ *
+ * What comes off is everything that made it look like paper on a screen, and
+ * the height it was standing in for a page with. The cards keep their
  * millimetres, which is the whole point of laying them out in them.
  */
 @media print {
   .page {
-    width: auto;
     min-height: 0;
-    /* The page box already supplies the margin, so only the insets are left,
-       and they stay on the leading edges for the reason above. */
-    padding: var(--page-grid-row-inset) 0 0 var(--page-grid-inset);
+    /* No bottom padding on paper. Nothing is laid out below the last row, so
+       it buys no blank that the grid was not already leaving, and a box that
+       came to exactly the page height would break onto a second page on a
+       sub-pixel rounding. */
+    padding: calc(var(--page-margin) + var(--page-grid-row-inset))
+      var(--page-margin) 0
+      calc(var(--page-margin) + var(--page-grid-inset));
     outline: none;
     box-shadow: none;
     /* The sheet paints its paper rather than going transparent, because what

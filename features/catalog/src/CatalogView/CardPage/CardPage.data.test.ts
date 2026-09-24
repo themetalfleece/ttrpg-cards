@@ -1,5 +1,9 @@
 import { CardLayout, type Card } from "@ttrpg-cards/card";
-import { SheetLayout, type SheetSlot } from "@ttrpg-cards/printer";
+import {
+  CUSTOM_PAGE_SIZE,
+  SheetLayout,
+  type SheetSlot,
+} from "@ttrpg-cards/printer";
 import { describe, expect, it } from "vitest";
 
 import { cardPageStyle, pageCells, pageRule } from "./CardPage.data";
@@ -52,6 +56,27 @@ describe("cardPageStyle", () => {
     );
   });
 
+  // The reach is how the sheet says whether it carries guides at all: the
+  // stylesheet lays the marks out at whatever it is given, and nothing is
+  // what draws nothing, so there is no second rule and no branch here.
+  //
+  // Both settings are named rather than one taken from the default. Left to
+  // the default, the two sides of this would both be nothing the day it
+  // moved, and the test would keep passing while covering half of what it
+  // says it covers.
+  it("reaches the guides out by what the sheet says, or not at all", () => {
+    const guided = SheetLayout.default().with({ cutGuides: "on" });
+    const plain = SheetLayout.default().with({ cutGuides: "off" });
+
+    expect(
+      cardPageStyle({ sheet: guided, layout })["--page-guide-reach"],
+    ).toBe(`${guided.cutGuideReachMillimetres}mm`);
+    expect(guided.cutGuideReachMillimetres).toBeGreaterThan(0);
+    expect(
+      cardPageStyle({ sheet: plain, layout })["--page-guide-reach"],
+    ).toBe("0mm");
+  });
+
   // The margin belongs to the paper, so picking a paper moves it too.
   it("carries the margin the paper brings with it", () => {
     const a4 = cardPageStyle({
@@ -84,39 +109,73 @@ describe("cardPageStyle", () => {
 });
 
 describe("pageRule", () => {
-  it("prints on the paper the preview is drawn at", () => {
-    const sheet = SheetLayout.default();
-
-    expect(pageRule({ sheet })).toBe(
-      "@page { size: 210mm 297mm; margin: 8mm; }",
-    );
-  });
-
-  it("follows every choice the sheet carries", () => {
-    const sheet = SheetLayout.default().with({
+  /**
+   * Every sheet the rule is checked against.
+   *
+   * The reader's own paper is one of them, and it is the reason the shape of
+   * the rule is asserted at all: it is the only size here that did not come
+   * out of a record, so it is the only one that could reach a stylesheet as
+   * something other than a measurement.
+   */
+  const sheets: readonly SheetLayout[] = [
+    SheetLayout.default(),
+    SheetLayout.default().with({
       size: "letter",
       orientation: "landscape",
-    });
+    }),
+    SheetLayout.default().with({
+      size: CUSTOM_PAGE_SIZE,
+      custom: { widthMillimetres: 148, heightMillimetres: 200 },
+    }),
+  ];
 
-    expect(pageRule({ sheet })).toBe(
-      "@page { size: 279.4mm 215.9mm; margin: 5mm; }",
+  // Read off the sheet rather than written out. A paper measurement is
+  // written down once, in the print package, and the harness behind
+  // `pnpm verify:print` is what restates the numbers and checks a browser
+  // really printed on them. What is this test's to prove is that the rule
+  // carries whatever the preview was drawn at.
+  it("prints on the paper the preview is drawn at", () => {
+    for (const sheet of sheets) {
+      expect(pageRule({ sheet })).toBe(
+        `@page { size: ${sheet.widthMillimetres}mm ${sheet.heightMillimetres}mm; margin: 0; }`,
+      );
+    }
+  });
+
+  // The sheet draws its own blank inside the paper's edges, because nothing
+  // in the page box can be drawn in a `@page` margin and the cut guides at
+  // the outside of the grid reach into exactly that blank.
+  it("hands the whole paper to the sheet", () => {
+    expect(pageRule({ sheet: SheetLayout.default() })).toContain(
+      "margin: 0",
     );
   });
 
-  // The rule is built into a stylesheet, so what goes into it matters. Every
-  // number comes from a closed preset record rather than from a reader.
+  // The rule is built into a stylesheet, so what goes into it matters: a
+  // paper the reader typed reaches a browser as text, and only as text.
   it("is nothing but numbers and units", () => {
-    for (const sheet of [
-      SheetLayout.default(),
-      SheetLayout.default().with({
-        size: "letter",
-        orientation: "landscape",
-      }),
-    ]) {
+    for (const sheet of sheets) {
       expect(pageRule({ sheet })).toMatch(
-        /^@page \{ size: [\d.]+mm [\d.]+mm; margin: [\d.]+mm; \}$/,
+        /^@page \{ size: [\d.]+mm [\d.]+mm; margin: 0; \}$/,
       );
     }
+  });
+
+  it("gives a browser nothing to read past the rule it was handed", () => {
+    const rule = pageRule({
+      sheet: SheetLayout.default().with({
+        size: CUSTOM_PAGE_SIZE,
+        custom: {
+          widthMillimetres: Number.NaN,
+          heightMillimetres: 200,
+        },
+      }),
+    });
+
+    expect(rule).not.toContain("NaN");
+    expect(rule).toMatch(
+      /^@page \{ size: [\d.]+mm [\d.]+mm; margin: 0; \}$/,
+    );
   });
 });
 

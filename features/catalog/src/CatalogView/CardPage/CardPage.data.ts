@@ -42,6 +42,12 @@ export function cardPageStyle(options: {
     ),
     "--page-slot-width": millimetres(layout.widthMillimetres),
     "--page-slot-height": millimetres(layout.heightMillimetres),
+    // How far a cut guide reaches out from a card, which is nothing at all on
+    // a sheet carrying none. A measurement rather than a flag for the same
+    // reason as the row inset above: the stylesheet lays the marks out at
+    // whatever reach it is given, and a reach of nothing draws nothing, so
+    // nothing here branches on whether the guides are on.
+    "--page-guide-reach": millimetres(sheet.cutGuideReachMillimetres),
   };
 }
 
@@ -96,24 +102,35 @@ export function pageCells(
  * The printed page box, as the `@page` rule that sets it.
  *
  * This exists because `@page` descriptors do not resolve `var()`, so the paper
- * and the margin cannot be read from the custom properties beside them and
- * have to be written into the rule as text. Without it the browser picks the
- * paper and the margins itself, the sheet re-wraps against whatever run of
- * paper that leaves, and what prints is not what the reader was shown.
+ * cannot be read from the custom property beside it and has to be written into
+ * the rule as text. Without it the browser picks the paper itself, the sheet
+ * re-wraps against whatever run of paper that leaves, and what prints is not
+ * what the reader was shown. The number comes from the same sheet the preview
+ * is drawn from, so the two cannot disagree, and the sheet has already held a
+ * paper the reader measured to what a sheet can be.
  *
- * Both numbers come from the same sheet the preview is drawn from, so the two
- * cannot disagree, and both come from closed preset records rather than from
- * anything a reader typed.
+ * **The page box has no margin of its own, and the sheet keeps its own blank
+ * instead.** A `@page` margin is unreachable: nothing in the page box can be
+ * drawn in it, and the cut guides at the outside of the grid reach into
+ * exactly that blank. Handing the whole paper to the sheet also makes the
+ * printed geometry the same as the preview's rather than nearly the same,
+ * which is one fewer thing to keep in step.
+ *
+ * The cost is that a reader who leaves their dialog's headers and footers
+ * switched on gets them over the sheet's own margin rather than over a blank
+ * the browser was holding. They land clear of every card, because the margin
+ * is wider than a cut guide reaches, so what they can spoil is a guide rather
+ * than a card.
  *
  * @example
  * ```ts
  * pageRule({ sheet: SheetLayout.default() });
- * // "@page { size: 210mm 297mm; margin: 8mm; }"
+ * // "@page { size: 210mm 297mm; margin: 0; }"
  * ```
  */
 export function pageRule(options: { sheet: SheetLayout }): string {
   const { sheet } = options;
   const size = `${millimetres(sheet.widthMillimetres)} ${millimetres(sheet.heightMillimetres)}`;
 
-  return `@page { size: ${size}; margin: ${millimetres(sheet.marginMillimetres)}; }`;
+  return `@page { size: ${size}; margin: 0; }`;
 }

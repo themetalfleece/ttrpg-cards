@@ -1,10 +1,15 @@
 import {
+  CARD_HEIGHT_MILLIMETRES,
+  CARD_TOLERANCE_MILLIMETRES,
+  CARD_WIDTH_MILLIMETRES,
+  GUIDE_REACH_MILLIMETRES,
   PAPER_TOLERANCE_MILLIMETRES,
   TOLERANCE_MILLIMETRES,
 } from "./print.constants.ts";
 import type {
   CheckResult,
   MirrorAxis,
+  PaperRun,
   PrintedPdf,
   RenderedCard,
   RenderedPage,
@@ -224,6 +229,179 @@ export function paperIsWhatWasPicked(options: {
       sameSize(pdf.widthMillimetres, page.widthMillimetres) &&
       sameSize(pdf.heightMillimetres, page.heightMillimetres),
     detail: `${printed} printed against ${millimetres(page.widthMillimetres)} by ${millimetres(page.heightMillimetres)} picked`,
+  };
+}
+
+/** Every card on every page, which is what the whole-run checks read. */
+function allCards(
+  pages: readonly RenderedPage[],
+): readonly RenderedCard[] {
+  return pages.flatMap((page) => page.cards);
+}
+
+/**
+ * That a card came out the size it is cut to, on every page.
+ *
+ * The claim the whole app rests on and the only one nothing else can make: a
+ * card is laid out in millimetres so that the thing coming off the printer is
+ * the size a sleeve takes, and whether a CSS millimetre survived the trip to
+ * paper is a question only a browser and a PDF can answer.
+ *
+ * Measured off the drawn box against the sheet's own paper width, so the
+ * preview's screen scale divides out and the answer is physical.
+ */
+export function cardsAreCutToSize(
+  pages: readonly RenderedPage[],
+): CheckResult {
+  const cards = allCards(pages);
+  const off = (card: RenderedCard) =>
+    Math.max(
+      Math.abs(card.widthMillimetres - CARD_WIDTH_MILLIMETRES),
+      Math.abs(card.heightMillimetres - CARD_HEIGHT_MILLIMETRES),
+    );
+  const worst = cards.reduce<RenderedCard | undefined>(
+    (found, card) =>
+      found === undefined || off(card) > off(found) ? card : found,
+    undefined,
+  );
+
+  if (worst === undefined) {
+    return {
+      name: "Every card is cut to the size it was laid out at",
+      passed: false,
+      detail: "no cards were drawn, so nothing was measured",
+    };
+  }
+
+  return {
+    name: "Every card is cut to the size it was laid out at",
+    passed: off(worst) <= CARD_TOLERANCE_MILLIMETRES,
+    detail: `${cards.length} cards, worst ${millimetres(worst.widthMillimetres)} by ${millimetres(worst.heightMillimetres)} against ${millimetres(CARD_WIDTH_MILLIMETRES)} by ${millimetres(CARD_HEIGHT_MILLIMETRES)}, out by ${millimetres(off(worst))}`,
+  };
+}
+
+/**
+ * That the fixture came to the number of pages this paper holds it in.
+ *
+ * The count is stated by the run rather than asked of the sheet, so a paper
+ * that quietly stopped changing how much fits on it fails here.
+ */
+export function pageCountIs(options: {
+  pages: readonly RenderedPage[];
+  run: PaperRun;
+}): CheckResult {
+  return {
+    name: "The fixture fills the pages this paper holds it in",
+    passed: options.pages.length === options.run.pageCount,
+    detail: `${options.pages.length} drawn against ${options.run.pageCount} expected on ${options.run.option}`,
+  };
+}
+
+/**
+ * That a full sheet of this paper holds the number of cards it should.
+ *
+ * Read off the fullest page, because the last one is short by however many
+ * cards the fixture ran out at and says nothing about the grid.
+ */
+export function cardsPerPageIs(options: {
+  pages: readonly RenderedPage[];
+  run: PaperRun;
+}): CheckResult {
+  const fullest = fullestPage(options.pages);
+  const held = fullest?.cards.length ?? 0;
+
+  return {
+    name: "A full sheet of this paper holds the cards it has room for",
+    passed: held === options.run.cardsPerPage,
+    detail: `${held} on the fullest page against ${options.run.cardsPerPage} expected on ${options.run.option}`,
+  };
+}
+
+/**
+ * That the printed file came out on the paper the run asked for.
+ *
+ * Against the run's own measurements rather than the page's, which is what
+ * separates this from {@link paperIsWhatWasPicked}: that one holds the print
+ * to the preview, and this one holds both to a paper written down outside the
+ * app. It is the check that makes the custom paper worth driving, because a
+ * sheet nobody published is the one a hardcoded size would break.
+ */
+export function printedOnPaper(options: {
+  pdf: PrintedPdf;
+  run: PaperRun;
+}): CheckResult {
+  const { pdf, run } = options;
+  const sameSize = (one: number, other: number) =>
+    Math.abs(one - other) <= PAPER_TOLERANCE_MILLIMETRES;
+
+  return {
+    name: "The PDF is on the paper this run asked for",
+    passed:
+      sameSize(pdf.widthMillimetres, run.widthMillimetres) &&
+      sameSize(pdf.heightMillimetres, run.heightMillimetres),
+    detail: `${millimetres(pdf.widthMillimetres)} by ${millimetres(pdf.heightMillimetres)} printed against ${millimetres(run.widthMillimetres)} by ${millimetres(run.heightMillimetres)} asked for`,
+  };
+}
+
+/**
+ * That every card carries cut guides, and that they reach outwards.
+ *
+ * Outwards is the claim worth checking. A mark drawn inside the card is on
+ * the card once it is cut out and no blade takes it off again, and a reach
+ * short of the blank between two cards leaves the cut line broken where a
+ * trimmer most needs it.
+ */
+export function cardsCarryCutGuides(
+  pages: readonly RenderedPage[],
+): CheckResult {
+  const cards = allCards(pages);
+  const unmarked = cards.filter((card) => !card.guides.painted);
+  const shortest = cards.reduce<number | undefined>(
+    (found, card) =>
+      found === undefined || card.guides.reachMillimetres < found
+        ? card.guides.reachMillimetres
+        : found,
+    undefined,
+  );
+  const reaches =
+    shortest !== undefined &&
+    shortest >= GUIDE_REACH_MILLIMETRES - TOLERANCE_MILLIMETRES;
+
+  return {
+    name: "Every card carries cut guides, in the blank around it",
+    passed: cards.length > 0 && unmarked.length === 0 && reaches,
+    detail:
+      unmarked.length > 0
+        ? `${unmarked.length} of ${cards.length} cards have no marks: ${unmarked.map((card) => card.name).join(", ")}`
+        : `${cards.length} cards, marks reaching ${millimetres(shortest ?? 0)} out against ${millimetres(GUIDE_REACH_MILLIMETRES)} expected`,
+  };
+}
+
+/**
+ * That a sheet asked to carry no cut guides carries none.
+ *
+ * The other half of {@link cardsCarryCutGuides}, and the half a browser is
+ * needed for: the guides come off by the sheet setting their reach to
+ * nothing, so what proves they are gone is that nothing is painted, and only
+ * a layout engine can say that. A stylesheet that started drawing them at a
+ * fixed length instead would pass every other check here.
+ */
+export function cutGuidesComeOff(
+  pages: readonly RenderedPage[],
+): CheckResult {
+  const cards = allCards(pages);
+  // Painted alone, because that is the claim. Asking for a reach as well
+  // would let a mark still being drawn at a fixed length past, which is
+  // precisely the regression worth catching here.
+  const marked = cards.filter((card) => card.guides.painted);
+
+  return {
+    name: "A sheet asked for no cut guides carries none",
+    passed: cards.length > 0 && marked.length === 0,
+    detail:
+      marked.length === 0
+        ? `${cards.length} cards, none of them marked`
+        : `${marked.length} of ${cards.length} cards are still marked, reaching ${millimetres(marked[0]?.guides.reachMillimetres ?? 0)} out`,
   };
 }
 

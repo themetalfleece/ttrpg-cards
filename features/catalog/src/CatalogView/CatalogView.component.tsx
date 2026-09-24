@@ -62,14 +62,8 @@ export function CatalogView({ className }: CatalogViewProps) {
           onTextSizeChange={selection.chooseTextSize}
         />
         <PageControls
-          paper={selection.paper}
-          onPaperChange={selection.choosePaper}
-          orientation={selection.orientation}
-          onOrientationChange={selection.chooseOrientation}
-          sides={selection.sides}
-          onSidesChange={selection.chooseSides}
-          flipEdge={selection.flipEdge}
-          onFlipEdgeChange={selection.chooseFlipEdge}
+          sheet={selection.sheet}
+          onSheetChange={selection.changeSheet}
           printable={printable}
         />
         <ScreenCalibration

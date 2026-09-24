@@ -8,11 +8,8 @@ import type {
 } from "@ttrpg-cards/card";
 import type { ImportIssue } from "@ttrpg-cards/importer";
 import type {
-  FlipEdgeName,
-  PageOrientation,
-  PageSizeName,
-  PrintSidesName,
   SheetLayout,
+  SheetLayoutOverrides,
 } from "@ttrpg-cards/printer";
 import type { CatalogAttribution } from "@ttrpg-cards/srd";
 
@@ -77,22 +74,16 @@ export interface CatalogSelection {
    * one re-measures every card on the page.
    */
   readonly layout: CardLayout;
-  /** The paper the sheet is printed on. */
-  readonly paper: PageSizeName;
-  /** Which way round that paper goes. */
-  readonly orientation: PageOrientation;
   /**
-   * How many sides of it the job prints on. Two puts an entry's continuation
-   * on the back of its own slot, so one cut gives a card carrying all of it.
+   * The sheet the cards are laid out on: the paper, the way round it goes,
+   * how many sides it prints on, the edge it flips about, and whether it
+   * carries cut guides.
+   *
+   * The sheet itself rather than those settings one by one, because it is a
+   * value object that already answers every question about them and already
+   * knows how to produce the next one. A control reads what it shows off the
+   * sheet and hands a change back through `changeSheet`.
    */
-  readonly sides: PrintSidesName;
-  /**
-   * The edge the printer turns the sheet about, which is what decides where a
-   * back slot lands. Kept whichever way the job prints, so turning two sided
-   * off and on again does not lose the answer.
-   */
-  readonly flipEdge: FlipEdgeName;
-  /** All of those as the sheet the cards are laid out on. */
   readonly sheet: SheetLayout;
   /**
    * The entries the sheet draws from, in the order they were written: the
@@ -119,14 +110,16 @@ export interface CatalogSelection {
   readonly chooseSize: (size: CardLayoutPresetName) => void;
   /** Picks how large the type is set. */
   readonly chooseTextSize: (textSize: CardTextSizeName) => void;
-  /** Picks a paper. */
-  readonly choosePaper: (paper: PageSizeName) => void;
-  /** Picks which way round the paper goes. */
-  readonly chooseOrientation: (orientation: PageOrientation) => void;
-  /** Picks how many sides of the paper the job prints on. */
-  readonly chooseSides: (sides: PrintSidesName) => void;
-  /** Picks the edge the printer turns the sheet about. */
-  readonly chooseFlipEdge: (flipEdge: FlipEdgeName) => void;
+  /**
+   * Changes part of the sheet, leaving the rest as it was.
+   *
+   * One way in for every sheet setting rather than one per setting, because
+   * `SheetLayout.with` is already exactly that and a second copy of it here
+   * would be a list to keep in step. It is also what holds a paper the reader
+   * typed to what a sheet can be, since that happens in the constructor `with`
+   * calls.
+   */
+  readonly changeSheet: (overrides: SheetLayoutOverrides) => void;
   /** Sets how much the preview is scaled by. */
   readonly chooseScreenScale: (scale: number) => void;
   /** Reads the documents the reader brought, adding their cards to the page. */

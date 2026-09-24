@@ -23,6 +23,14 @@ export interface CardPageEntryProps {
   count: number;
   /** Told how many cards the entry turned out to be. */
   onFaceCount: (report: FaceCountReport) => void;
+  /**
+   * Put on every card this draws, rather than on one box around them.
+   *
+   * An entry is a run of slots in the sheet's grid and not a group, so there
+   * is no box here to hang anything on. The sheet uses it for the cut guides,
+   * which belong to each card that gets cut out.
+   */
+  faceClassName?: string | undefined;
 }
 
 /** What reporting an entry's cost needs. */
